@@ -1,0 +1,16 @@
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dbo: <http://dbpedia.org/ontology/>
+
+select distinct ?x ?y where {
+?x a dbo:Species.
+bind( if (exists {[] dbo:genus ?x}, "genus", 
+      if (exists {[] dbo:kingdom ?x}, "kingdom",
+      if (exists {[] dbo:species ?x}, "species",
+      if (exists {[] dbo:phylum ?x}, "phylum",
+      if (exists {[] dbo:classis ?x}, "classis",
+      if (exists {[] dbo:order ?x}, "order",
+      if (exists {[] dbo:family ?x}, "family",
+       if (exists {?x dbo:genus []}, "species",
+	"")))))))) as ?y )
+}
+

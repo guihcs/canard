@@ -1,0 +1,10 @@
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos-xl: <http://www.w3.org/2008/05/skos-xl#>
+
+
+SELECT DISTINCT ?x WHERE {
+{{{uri}} ?b ?x.}
+UNION { {{uri}} skos-xl:prefLabel ?z.
+?z skos-xl:literalForm ?x.}
+filter (isLiteral(?x)).
+}

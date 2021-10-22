@@ -1,0 +1,47 @@
+plugins {
+    id 'application'
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-core
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.13.0'
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.0'
+
+    //https://gitlab.inria.fr/moex/alignapi/-/releases
+    implementation files('lib/align.jar')
+    implementation files('lib/alignsvc.jar')
+    implementation files('lib/ontowrap.jar')
+    implementation files('lib/procalign.jar')
+
+    // https://mvnrepository.com/artifact/org.apache.jena/apache-jena-libs
+    implementation 'org.apache.jena:apache-jena-libs:3.9.0'
+
+    implementation 'org.apache.jena:jena-fuseki-embedded:3.8.0'
+    implementation 'org.apache.jena:jena-fuseki-server:3.9.0'
+    implementation 'org.apache.commons:commons-text:1.9'
+
+    implementation 'org.apache.jena:jena-arq:3.9.0'
+
+    // https://mvnrepository.com/artifact/log4j/log4j
+    implementation 'log4j:log4j:1.2.17'
+
+    implementation 'com.google.code.gson:gson:2.8.8'
+
+    // https://mvnrepository.com/artifact/com.google.guava/guava
+    implementation 'com.google.guava:guava:31.0.1-jre'
+
+}
+
+test {
+    useJUnitPlatform()
+}

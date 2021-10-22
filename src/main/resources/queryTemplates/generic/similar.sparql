@@ -1,0 +1,11 @@
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos-xl: <http://www.w3.org/2008/05/skos-xl#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+
+SELECT DISTINCT ?x WHERE {
+{?x ?z ?label.}
+UNION {?x skos-xl:prefLabel ?z.
+?z skos-xl:literalForm ?label.}
+filter (regex(?label, "^{{labelValue}}$","i")).
+}

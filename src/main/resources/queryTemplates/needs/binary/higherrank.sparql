@@ -1,0 +1,6 @@
+PREFIX agro: <http://ontology.irstea.fr/agronomictaxon/core#>
+
+select distinct ?taxon1 ?taxon2 where {
+?taxon1 agro:hasHigherRank ?taxon2.
+}
+

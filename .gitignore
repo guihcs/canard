@@ -1,0 +1,10 @@
+.idea
+generated_CQA
+runConfig.json
+lib
+.gradle
+build
+/data/
+/out/
+/output/
+/gradle/

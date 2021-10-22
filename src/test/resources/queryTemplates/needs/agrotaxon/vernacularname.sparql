@@ -1,0 +1,7 @@
+PREFIX agro: <http://ontology.irstea.fr/agronomictaxon/core#>
+
+select distinct ?x ?y where {
+?x agro:prefVernacularName ?y.
+filter(lang(?y)= "en")
+}
+

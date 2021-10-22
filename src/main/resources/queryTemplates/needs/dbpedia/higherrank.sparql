@@ -1,0 +1,15 @@
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dbo: <http://dbpedia.org/ontology/>
+
+select distinct ?x ?y where {
+?x a dbo:Species.
+?y a dbo:Species.
+{?x dbo:genus ?y.}
+UNION{?x dbo:kingdom ?y.}
+UNION{?x dbo:species ?y.}
+UNION{?x dbo:phylum ?y.}
+UNION{?x dbo:classis ?y.}
+UNION{?x dbo:order ?y.}
+UNION{?x dbo:family ?y.}
+}
+

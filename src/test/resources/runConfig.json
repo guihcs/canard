@@ -1,0 +1,17 @@
+{
+  "sourceOntology": {
+    "file": "/home/guilherme/Documents/kg/conference/cmt.owl",
+    "name": "cmt"
+  },
+  "targetOntology": {
+    "file": "/home/guilherme/Documents/kg/conference/conference.owl",
+    "name": "conference"
+  },
+  "cqaFolder": "/queryTemplates/conf/",
+  "output": [
+    {
+      "type": "edoal",
+      "file": "output/t1.edoal"
+    }
+  ]
+}
