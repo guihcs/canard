@@ -1,10 +1,10 @@
 package fr.irit.resource;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import fr.irit.complex.utils.Utils;
+import fr.irit.input.CQAManager;
 import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
+import fr.irit.sparql.query.select.SelectResponse;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -14,6 +14,7 @@ public class Resource {
 
     protected final String value;
     protected final HashSet<IRI> similarIRIs;
+    private final Pattern pattern = Pattern.compile("[a-z][/:#]");
 
     public Resource(String val) {
         value = val.replaceAll("\\\\", "");
@@ -21,7 +22,7 @@ public class Resource {
     }
 
     public boolean isIRI() {
-        Pattern pattern = Pattern.compile("[a-z][/:#]");
+
         Matcher matcher = pattern.matcher(value);
         return !value.contains(" ") && matcher.find();
     }
@@ -30,41 +31,38 @@ public class Resource {
 
         Map<String, String> substitution = new HashMap<>();
         substitution.put("labelValue", value);
-        if (value.length() > 1) {
-            substitution.put("LabelValue", value.substring(0, 1).toUpperCase() + value.substring(1));
-        } else {
-            substitution.put("LabelValue", "\"" + value.toUpperCase() + "\"");
-        }
-        String query = Utils.getInstance().getSimilarQuery(targetEndpoint, substitution);
+
+        substitution.put("LabelValue", value.length() > 1 ?
+                value.substring(0, 1).toUpperCase() + value.substring(1) :
+                "\"" + value.toUpperCase() + "\"");
+
+        String query = CQAManager.getInstance().getSimilarQuery(targetEndpoint, substitution);
         SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
 
+        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
 
-        ArrayList<JsonNode> ret = spIn.getResponse(query);
-
-        Iterator<JsonNode> retIterator = ret.iterator();
-        while (retIterator.hasNext()) {
-            String s = retIterator.next().get("x").get("value").toString().replaceAll("\"", "");
+        for(Map<String, SelectResponse.Results.Binding> node : ret) {
+            String s = node.get("x").getValue().replaceAll("\"", "");
             similarIRIs.add(new IRI("<" + s + ">"));
         }
 
         substitution.put("labelValue", "\"" + value.substring(0, 1).toUpperCase() + value.substring(1) + "\"@en");
-        query = Utils.getInstance().getSimilarQuery(targetEndpoint, substitution);
+        query = CQAManager.getInstance().getSimilarQuery(targetEndpoint, substitution);
         ret = spIn.getResponse(query);
 
-        retIterator = ret.iterator();
-        while (retIterator.hasNext()) {
-            String s = retIterator.next().get("x").get("value").toString().replaceAll("\"", "");
+        for(Map<String, SelectResponse.Results.Binding> node : ret) {
+            String s = node.get("x").getValue().replaceAll("\"", "");
             similarIRIs.add(new IRI("<" + s + ">"));
         }
 
         substitution.put("labelValue", "\"" + value.substring(0, 1).toUpperCase() + value.substring(1) + "\"");
         ret = spIn.getResponse(query);
 
-        retIterator = ret.iterator();
-        while (retIterator.hasNext()) {
-            String s = retIterator.next().get("x").get("value").toString().replaceAll("\"", "");
+        for(Map<String, SelectResponse.Results.Binding> node : ret) {
+            String s = node.get("x").getValue().replaceAll("\"", "");
             similarIRIs.add(new IRI("<" + s + ">"));
         }
+
 
     }
 
@@ -89,8 +87,8 @@ public class Resource {
     }
 
     public boolean equals(Object obj) {
-        if (obj instanceof Resource) {
-            return value.equals(((Resource) obj).value);
+        if (obj instanceof Resource r) {
+            return value.equals(r.value);
         } else {
             return false;
         }

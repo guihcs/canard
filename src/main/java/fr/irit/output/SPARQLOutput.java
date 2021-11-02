@@ -1,8 +1,8 @@
 package fr.irit.output;
 
 import fr.irit.complex.subgraphs.SubgraphForOutput;
-import fr.irit.complex.subgraphs.Triple;
-import fr.irit.complex.subgraphs.TripleSubgraph;
+import fr.irit.complex.subgraphs.unary.Triple;
+import fr.irit.complex.subgraphs.unary.TripleSubgraph;
 import fr.irit.complex.utils.Parameters;
 import fr.irit.resource.IRI;
 import fr.irit.sparql.proxy.SparqlProxy;
@@ -49,9 +49,6 @@ public class SPARQLOutput extends Output {
     }
 
 
-    /**
-     * Creates an alignment with datetime, source and target ontologies
-     */
     public String createAlignment(Map<String, String> substitution) {
         String query = "";
         try {
@@ -62,9 +59,7 @@ public class SPARQLOutput extends Output {
         return query;
     }
 
-    /**
-     * Adds a Cell to the alignment
-     */
+
     public String createCell(Map<String, String> substitution) {
         String query = "";
         try {
@@ -75,9 +70,7 @@ public class SPARQLOutput extends Output {
         return query;
     }
 
-    /**
-     * Create source subgraphs with instance
-     */
+
     public String createSourceSubgraph(Map<String, String> substitution) {
         String query = "";
         try {
@@ -99,9 +92,7 @@ public class SPARQLOutput extends Output {
     }
 
 
-    /**
-     * create Triple
-     */
+
     public String createTriple(Map<String, String> substitution) {
         String query = "";
         try {
@@ -146,7 +137,6 @@ public class SPARQLOutput extends Output {
         substitution.put("sourceSubgraph", "<" + outputIRI + "subgraph-source-" + query.hashCode() + alignmentHashCode + ">");
         substitution.put("competencyQuestion", "<" + outputIRI + "competencyQuestion" + query.hashCode() + alignmentHashCode + ">");
         substitution.put("SPARQLCQA", "\"" + query.toString().replaceAll("\n", " ").replaceAll("\"", "\\\\\"\\\\\"") + "\"");
-        //TODO: deal with NLCQA (+add NLCQA in insert_cell template)
 
         substitution.put("form", "\"" + query.toSubgraphForm() + "\"");
         String createSourceInstance = createSourceSubgraph(substitution);
@@ -156,7 +146,6 @@ public class SPARQLOutput extends Output {
                 | SparqlEndpointUnreachableException e) {
             e.printStackTrace();
         }
-        //TODO: only keep instances which
 
         int i = 0;
         for (SubgraphForOutput s : output) {
@@ -179,12 +168,12 @@ public class SPARQLOutput extends Output {
                 e.printStackTrace();
             }
 
-            if (s instanceof TripleSubgraph) {
+            if (s instanceof TripleSubgraph tripleSubgraph) {
                 int j = 0;
-                for (Triple t : ((TripleSubgraph) s).getTriples()) {
+                for (Triple t : tripleSubgraph.getTriples()) {
                     substitution.put("triple", "<" + outputIRI + "triple_" + cellHashCode + j + ">");
                     substitution.put("predicate", t.getPredicate().toString());
-                    substitution.put("similarity", "\"" + t.getSimilarity() + "\"^^xsd:float");
+                    substitution.put("similarity", "\"" + tripleSubgraph.getSimilarityMap().get(t) + "\"^^xsd:float");
                     substitution.put("instance", t.getAnswer().toString());
                     if (t.keepObjectType) {
                         substitution.put("object", t.getObjectType().toString());
@@ -197,9 +186,9 @@ public class SPARQLOutput extends Output {
                         substitution.put("subject", t.getSubject().toValueString());
                     }
 
-                    substitution.put("objectSimilarity", "\"" + t.getObjectSimilarity() + "\"^^xsd:float");
-                    substitution.put("subjectSimilarity", "\"" + t.getSubjectSimilarity() + "\"^^xsd:float");
-                    substitution.put("predicateSimilarity", "\"" + t.getPredicateSimilarity() + "\"^^xsd:float");
+                    substitution.put("objectSimilarity", "\"" + tripleSubgraph.getSimilarityMap().get(t).objectSimilarity() + "\"^^xsd:float");
+                    substitution.put("subjectSimilarity", "\"" + tripleSubgraph.getSimilarityMap().get(t).subjectSimilarity() + "\"^^xsd:float");
+                    substitution.put("predicateSimilarity", "\"" + tripleSubgraph.getSimilarityMap().get(t).predicateSimilarity() + "\"^^xsd:float");
                     substitution.put("keepObjectType", "\"" + t.keepObjectType + "\"^^xsd:boolean");
                     substitution.put("keepSubjectType", "\"" + t.keepSubjectType + "\"^^xsd:boolean");
                     try {
@@ -210,8 +199,8 @@ public class SPARQLOutput extends Output {
                             pushLabels(t.getSubject().getLabels(), t.getSubject().toString(), spOutput);
                         }
                         if (!t.isObjectTriple() || !t.keepObjectType) {
-                            if (t.getObject() instanceof IRI) {
-                                pushLabels(((IRI) t.getObject()).getLabels(), t.getObject().toString(), spOutput);
+                            if (t.getObject() instanceof IRI to) {
+                                pushLabels(to.getLabels(), t.getObject().toString(), spOutput);
                             }
                         }
                         pushLabels(t.getPredicate().getLabels(), t.getPredicate().toString(), spOutput);

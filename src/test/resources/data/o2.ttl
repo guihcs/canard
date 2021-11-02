@@ -1,0 +1,18 @@
+@prefix o2: <http://o2#>.
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+
+
+o2:person1 a o2:Person;
+    o2:writes o2:paper1.
+
+o2:paper1 a o2:Paper;
+    o2:hasDecision o2:decision1;
+    a o2:Document.
+
+o2:Paper rdfs:subClassOf o2:Document.
+
+o2:decision1 a o2:Decision;
+    a o2:Acceptance.
+
+o2:Acceptance rdfs:subClassOf o2:Decision.

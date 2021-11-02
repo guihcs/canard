@@ -1,6 +1,7 @@
 package fr.irit.main;
 
 import fr.irit.complex.ComplexAlignmentGeneration;
+import fr.irit.complex.QueryArityException;
 import fr.irit.input.ParameterException;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
@@ -18,9 +19,7 @@ public class Main {
             ComplexAlignmentGeneration complexAlignmentGeneration = new ComplexAlignmentGeneration(executionConfig);
             System.out.println("Running with " + executionConfig.getMaxMatches() + " support instances - " + executionConfig.getSimilarityThreshold() + " similarity.");
 
-            if (executionConfig.isSystemCanRun()) {
-                complexAlignmentGeneration.run();
-            }
+            complexAlignmentGeneration.run();
 
             executionConfig.end();
             System.out.println("Matching process ended");
@@ -31,7 +30,7 @@ public class Main {
         } catch (IllegalArgumentException e) {
             System.err.println("At least 1 argument is expected, you provided: " + args.length +
                     "\nPlease refer to Readme.md file");
-        } catch (ParameterException e) {
+        } catch (ParameterException | QueryArityException e) {
             System.err.println(e.getMessage());
         }
 

@@ -1,7 +1,11 @@
-package fr.irit.complex.answer;
+package fr.irit.complex.answer.binary;
 
+import fr.irit.complex.answer.Answer;
+import fr.irit.complex.answer.SubgraphResult;
 import fr.irit.complex.subgraphs.InstantiatedSubgraph;
-import fr.irit.complex.subgraphs.Path;
+import fr.irit.complex.subgraphs.binary.Path;
+import fr.irit.complex.subgraphs.unary.SimilarityValues;
+import fr.irit.complex.utils.Utils;
 import fr.irit.main.ExecutionConfig;
 import fr.irit.resource.IRI;
 import fr.irit.resource.Resource;
@@ -32,22 +36,22 @@ public class PairAnswer extends Answer {
 
     @Override
     public void retrieveIRILabels(String endpointURL) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
-        if (r1 instanceof IRI) {
-            ((IRI) r1).retrieveLabels(endpointURL);
+        if (r1 instanceof IRI ri) {
+            ri.retrieveLabels(endpointURL);
         }
-        if (r2 instanceof IRI) {
-            ((IRI) r2).retrieveLabels(endpointURL);
+        if (r2 instanceof IRI ri) {
+            ri.retrieveLabels(endpointURL);
         }
 
     }
     @Override
     public void getSimilarIRIs(String targetEndpoint) {
         if (!similarlooked) {
-            if (r1 instanceof IRI) {
-                ((IRI) r1).findSimilarResource(targetEndpoint);
+            if (r1 instanceof IRI ri) {
+                ri.findSimilarResource(targetEndpoint);
             }
-            if (r2 instanceof IRI) {
-                ((IRI) r2).findSimilarResource(targetEndpoint);
+            if (r2 instanceof IRI ri) {
+                ri.findSimilarResource(targetEndpoint);
             }
             similarlooked = true;
         }
@@ -55,38 +59,69 @@ public class PairAnswer extends Answer {
     @Override
     public void getExistingMatches(String sourceEndpoint, String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
 
-        if (r1 instanceof IRI) {
-            ((IRI) r1).findExistingMatches(sourceEndpoint, targetEndpoint);
+        if (r1 instanceof IRI ri) {
+            ri.findExistingMatches(sourceEndpoint, targetEndpoint);
         }
-        if (r2 instanceof IRI) {
-            ((IRI) r2).findExistingMatches(sourceEndpoint, targetEndpoint);
+        if (r2 instanceof IRI ri) {
+            ri.findExistingMatches(sourceEndpoint, targetEndpoint);
         }
 
     }
 
     @Override
-    public Set<InstantiatedSubgraph> findCorrespondingSubGraph(SparqlSelect query, ExecutionConfig executionConfig) {
-        Set<String> queryLabels = new HashSet<>();
+    public Set<SubgraphResult> findCorrespondingSubGraph(Set<String> queryLabels, SparqlSelect query, ExecutionConfig executionConfig) {
 
-        for (Map.Entry<String, IRI> iri : query.getIRIList().entrySet()) {
-            queryLabels.addAll(iri.getValue().getLabels());
-        }
-        Set<InstantiatedSubgraph> paths = getPaths(executionConfig, queryLabels);
+        Set<SubgraphResult> paths = new HashSet<>();
 
-        for (InstantiatedSubgraph p : paths) {
-            if (p instanceof Path) {
-                ((Path) p).compareLabel(queryLabels, executionConfig.getSimilarityThreshold(), executionConfig.getTargetEndpoint(), 0.5);
+        for (InstantiatedSubgraph p : getPaths(executionConfig, queryLabels)) {
+            if (p instanceof Path pa) {
+                double similarity = compareLabel(pa, queryLabels, executionConfig.getSimilarityThreshold(), executionConfig.getTargetEndpoint(), 0.5);
+                paths.add(new SubgraphResult(p, new SimilarityValues(similarity, 0, 0, 0)));
             } else {
                 System.err.println("problem in Pair answer: instantiated subgraph is not a path...");
             }
         }
-        if (paths.isEmpty() && !similarlooked) {
+        if (getPaths(executionConfig, queryLabels).isEmpty() && !similarlooked) {
             getSimilarIRIs(executionConfig.getTargetEndpoint());
             System.out.println("No path found, similar answers : " + printMatchedEquivalents());
-            paths = findCorrespondingSubGraph(query, executionConfig);
+            paths = findCorrespondingSubGraph(queryLabels, query, executionConfig);
         }
 
         return paths;
+    }
+
+
+    private double compareLabel(Path p, Set<String> targetLabels, double threshold, String targetEndpoint, double typeThreshold) {
+        double similarity = 0;
+        for (IRI prop : p.getProperties()) {
+            try {
+                prop.retrieveLabels(targetEndpoint);
+                similarity += Utils.similarity(prop.getLabels(), targetLabels, threshold);
+            } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException e) {
+                e.printStackTrace();
+            }
+        }
+
+        for (int i = 0; i < p.getEntities().size(); i++) {
+            Resource ent = p.getEntities().get(i);
+            if (ent instanceof IRI) {
+                IRI type = p.getTypes().get(i);
+                if (type != null) {
+                    double scoreType = Utils.similarity(type.getLabels(), targetLabels, threshold);
+                    if (scoreType > typeThreshold) {
+                        p.setTypeSimilarity(p.getTypeSimilarity() + scoreType);
+                    } else {
+                        p.getTypes().set(i, null);
+                    }
+                }
+            }
+        }
+        if (p.pathFound()) {
+            similarity += 0.5;
+        }
+
+        p.setSimilarity(similarity);
+        return similarity;
     }
 
 

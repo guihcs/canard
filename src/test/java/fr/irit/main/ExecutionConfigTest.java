@@ -16,6 +16,6 @@ class ExecutionConfigTest {
 
         SparqlSelect sparqlSelect = executionConfig.getQueries().get(0);
 
-        System.out.println(sparqlSelect.getIRIList());
+        System.out.println(sparqlSelect.getIRIMap());
     }
 }

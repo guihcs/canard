@@ -4,10 +4,10 @@ import fr.inrialpes.exmo.align.impl.edoal.*;
 import fr.inrialpes.exmo.align.impl.renderer.RDFRendererVisitor;
 import fr.inrialpes.exmo.align.parser.SyntaxElement.Constructor;
 import fr.inrialpes.exmo.ontowrap.BasicOntology;
-import fr.irit.complex.subgraphs.Path;
-import fr.irit.complex.subgraphs.PathSubgraph;
+import fr.irit.complex.subgraphs.binary.Path;
+import fr.irit.complex.subgraphs.binary.PathSubgraph;
 import fr.irit.complex.subgraphs.SubgraphForOutput;
-import fr.irit.complex.subgraphs.TripleSubgraph;
+import fr.irit.complex.subgraphs.unary.TripleSubgraph;
 import fr.irit.complex.utils.Parameters;
 import fr.irit.complex.utils.SPARQLNode;
 import fr.irit.sparql.query.select.SparqlSelect;
@@ -39,15 +39,12 @@ public class EDOALOutput extends Output {
     public void init() {
         alignment = new EDOALAlignment();
         BasicOntology o1 = new BasicOntology();
+        BasicOntology o2 = new BasicOntology();
         try {
             o1.setURI(new URI(sourceEndpoint));
             o1.setFormalism("owl");
             o1.setFormURI(new URI("http://www.w3.org/TR/owl-guide/"));
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
-        BasicOntology o2 = new BasicOntology();
-        try {
+
             o2.setURI(new URI(targetEndpoint));
             o2.setFormalism("owl");
             o2.setFormURI(new URI("http://www.w3.org/TR/owl-guide/"));
@@ -67,37 +64,38 @@ public class EDOALOutput extends Output {
         Expression sourceExpr = subgraphFormToEDOALEntity(sq.toSubgraphForm(), sq.getSelectFocus());
 
         for (SubgraphForOutput s : output) {
-            if (s.getSimilarity() >= 0) {
-                Expression targetExpr = null;
-                double score = s.getSimilarity();
-                if (score > 1.0) {
-                    score = 1.0;
-                }
-                if (s instanceof TripleSubgraph) {
-                    if (s.toIntensionString().contains("somePredicate")) {
-                        targetExpr = subgraphFormToEDOALEntity(s.toExtensionString(), sq.getSelectFocus());
-                    } else if (s.toIntensionString().contains("someObject") || s.toIntensionString().contains("someSubject")) {
-                        if (((TripleSubgraph) s).predicateHasMaxSim()) {
-                            targetExpr = subgraphFormToEDOALEntity(s.toIntensionString(), sq.getSelectFocus());
-                        } else {
-                            targetExpr = subgraphFormToEDOALEntity(s.toExtensionString(), sq.getSelectFocus());
-                        }
+            if(s.getSimilarity() < 0) continue;
+            Expression targetExpr = null;
+            double score = s.getSimilarity();
 
+            if (score > 1.0) {
+                score = 1.0;
+            }
+
+            if (s instanceof TripleSubgraph ts) {
+                if (s.toIntensionString().contains("somePredicate")) {
+                    targetExpr = subgraphFormToEDOALEntity(s.toExtensionString(), sq.getSelectFocus());
+                } else if (s.toIntensionString().contains("someObject") || s.toIntensionString().contains("someSubject")) {
+                    if (ts.predicateHasMaxSim()) {
+                        targetExpr = subgraphFormToEDOALEntity(s.toIntensionString(), sq.getSelectFocus());
                     } else {
                         targetExpr = subgraphFormToEDOALEntity(s.toExtensionString(), sq.getSelectFocus());
                     }
-                } else if (s instanceof PathSubgraph) {
-                    targetExpr = subgraphFormToEDOALProperty(s);
+
+                } else {
+                    targetExpr = subgraphFormToEDOALEntity(s.toExtensionString(), sq.getSelectFocus());
                 }
+            } else if (s instanceof PathSubgraph) {
+                targetExpr = subgraphFormToEDOALProperty(s);
+            }
 
 
-                try {
-                    if (sourceExpr != null & targetExpr != null) {
-                        alignment.addAlignCell(sourceExpr, targetExpr, "Equivalence", score);
-                    }
-                } catch (AlignmentException e) {
-                    e.printStackTrace();
+            try {
+                if (sourceExpr != null & targetExpr != null) {
+                    alignment.addAlignCell(sourceExpr, targetExpr, "Equivalence", score);
                 }
+            } catch (AlignmentException e) {
+                e.printStackTrace();
             }
         }
 
@@ -116,10 +114,10 @@ public class EDOALOutput extends Output {
         }
     }
 
-    public Expression subgraphFormToEDOALEntity(String s, ArrayList<String> focus) {
+    public Expression subgraphFormToEDOALEntity(String s, List<String> focus) {
         Expression expr = null;
-        ArrayList<String> subgraphs = setOfUNIONSubgraphs(s);
-        ArrayList<String> minusSubgraphs = setOfMINUSSubgraphs(s);
+        List<String> subgraphs = setOfUNIONSubgraphs(s);
+        List<String> minusSubgraphs = setOfMINUSSubgraphs(s);
         if (focus.size() == 1) {
             ClassExpression theclassExpr;
             ClassExpression classExprM;
@@ -199,7 +197,7 @@ public class EDOALOutput extends Output {
         return expr;
     }
 
-    public ArrayList<String> setOfUNIONSubgraphs(String s) {
+    public List<String> setOfUNIONSubgraphs(String s) {
         s = s.replaceAll("[\n\t ]+", " ");
         s = s.replaceAll("[\n\t ]+\\.", "\\.");
         s = s.replaceAll("[\\\\]*\\{", "\\\\\\{");
@@ -207,7 +205,7 @@ public class EDOALOutput extends Output {
         s = s.replaceAll("minus", "MINUS");
         s = s.replaceAll("MINUS *\\\\\\{([^\\\\}]+)\\\\}", "");
         s = s.replaceAll("union", "UNION");
-        ArrayList<String> res = new ArrayList<>();
+        List<String> res = new ArrayList<>();
         Pattern pattern1 = Pattern.compile("\\\\\\{([^\\\\}]+)\\\\} *UNION");
         Matcher matcher1 = pattern1.matcher(s);
         if (matcher1.find()) {
@@ -238,13 +236,13 @@ public class EDOALOutput extends Output {
         return res;
     }
 
-    public ArrayList<String> setOfMINUSSubgraphs(String s) {
+    public List<String> setOfMINUSSubgraphs(String s) {
         s = s.replaceAll("[\n\t ]+", " ");
         s = s.replaceAll("[\n\t ]+\\.", "\\.");
         s = s.replaceAll("[\\\\]*\\{", "\\\\\\{");
         s = s.replaceAll("[\\\\]*}", "\\\\\\}");
         s = s.replaceAll("minus", "MINUS");
-        ArrayList<String> res = new ArrayList<>();
+        List<String> res = new ArrayList<>();
         Pattern pattern1 = Pattern.compile("MINUS *\\\\\\{([^\\\\}]+)\\\\}");
         Matcher matcher1 = pattern1.matcher(s);
         while (matcher1.find()) {
@@ -335,7 +333,7 @@ public class EDOALOutput extends Output {
             Matcher matcher7 = pattern7.matcher(s);
             while (matcher7.find()) { //It's a U(CAV)
                 s = s.replaceAll(matcher7.group().replaceAll("\\?", "\\\\\\?"), "");
-                ArrayList<ClassExpression> setOfCAV = new ArrayList<>();
+                List<ClassExpression> setOfCAV = new ArrayList<>();
                 RelationId pred = new RelationId(new URI(matcher7.group(1).trim()));
                 String[] values = matcher7.group(2).trim().split(",");
                 for (String v : values) {
@@ -354,9 +352,9 @@ public class EDOALOutput extends Output {
             Matcher matcher8 = pattern8.matcher(s);
             while (matcher8.find()) { //It's a U(CIAV)
                 s = s.replaceAll(matcher8.group().replaceAll("\\?", "\\\\\\?"), "");
-                ArrayList<ClassExpression> setOfCAV = new ArrayList<>();
+                List<ClassExpression> setOfCAV = new ArrayList<>();
                 RelationId predId = new RelationId(new URI(matcher8.group(2).trim()));
-                ArrayList<RelationExpression> setPredId = new ArrayList<>();
+                List<RelationExpression> setPredId = new ArrayList<>();
                 setPredId.add(predId);
                 RelationConstruction pred = new RelationConstruction(Constructor.INVERSE, setPredId);
                 String[] values = matcher8.group(1).trim().split(",");
@@ -371,7 +369,7 @@ public class EDOALOutput extends Output {
             Matcher matcher9 = pattern9.matcher(s);
             while (matcher9.find()) { //It's a U(CAE/T)
                 s = s.replace(matcher9.group(), "");
-                ArrayList<RelationExpression> setPredId = new ArrayList<>();
+                List<RelationExpression> setPredId = new ArrayList<>();
                 String[] preds = matcher9.group(1).trim().split(",");
                 for (String predUri : preds) {
                     RelationId pred = new RelationId(new URI(predUri.replaceAll("[<> ]", "")));
@@ -390,7 +388,7 @@ public class EDOALOutput extends Output {
             Matcher matcher10 = pattern10.matcher(s);
             while (matcher10.find()) { //It's a U(CAE/T)
                 s = s.replace(matcher10.group(), "");
-                ArrayList<RelationExpression> setPredId = new ArrayList<>();
+                List<RelationExpression> setPredId = new ArrayList<>();
                 String[] preds = matcher10.group(2).trim().split(",");
                 for (String predUri : preds) {
                     RelationId predInv = new RelationId(new URI(predUri.replaceAll("[<> ]", "")));
@@ -412,7 +410,7 @@ public class EDOALOutput extends Output {
             Matcher matcher11 = pattern11.matcher(s);
             while (matcher11.find()) {
                 s = s.replace(matcher11.group(), "");
-                ArrayList<RelationExpression> setPredId = new ArrayList<>();
+                List<RelationExpression> setPredId = new ArrayList<>();
                 String[] preds = matcher11.group(1).trim().split(",");
                 for (String predUri : preds) {
                     RelationId pred = new RelationId(new URI(predUri.replaceAll("[<> ]", "")));
@@ -428,11 +426,11 @@ public class EDOALOutput extends Output {
             Matcher matcher12 = pattern12.matcher(s);
             while (matcher12.find()) {
                 s = s.replace(matcher12.group(), "");
-                ArrayList<RelationExpression> setPredId = new ArrayList<>();
+                List<RelationExpression> setPredId = new ArrayList<>();
                 String[] preds = matcher12.group(2).trim().split(",");
                 for (String predUri : preds) {
                     RelationId predInv = new RelationId(new URI(predUri.replaceAll("[<> ]", "")));
-                    ArrayList<RelationExpression> setPredIdInv = new ArrayList<>();
+                    List<RelationExpression> setPredIdInv = new ArrayList<>();
                     setPredIdInv.add(predInv);
                     RelationConstruction pred = new RelationConstruction(Constructor.INVERSE, setPredIdInv);
                     setPredId.add(pred);
@@ -446,7 +444,7 @@ public class EDOALOutput extends Output {
             Matcher matcher13 = pattern13.matcher(s);
             while (matcher13.find()) {
                 s = s.replaceAll(matcher13.group().replaceAll("\\?", "\\\\\\?"), "");
-                ArrayList<RelationExpression> setPredId = new ArrayList<>();
+                List<RelationExpression> setPredId = new ArrayList<>();
                 String[] preds = matcher13.group(1).trim().split(",");
                 for (String predUri : preds) {
                     RelationId pred = new RelationId(new URI(predUri.replaceAll("[<> ]", "")));
@@ -503,7 +501,7 @@ public class EDOALOutput extends Output {
             node2.addNeighbour(node1, triple);
         }
 
-        ArrayList<SPARQLNode> nodesToVisit = new ArrayList<>();
+        List<SPARQLNode> nodesToVisit = new ArrayList<>();
         nodesToVisit.add(nodes.get(focus1));
         boolean pathFound = false;
 
@@ -526,9 +524,9 @@ public class EDOALOutput extends Output {
         }
 
 
-        ArrayList<String> properties = new ArrayList<>();
-        ArrayList<Boolean> inverse = new ArrayList<>();
-        ArrayList<ClassExpression> types = new ArrayList<>();
+        List<String> properties = new ArrayList<>();
+        List<Boolean> inverse = new ArrayList<>();
+        List<ClassExpression> types = new ArrayList<>();
         if (pathFound) {
             SPARQLNode currNode = nodes.get(focus2);
             String predName = currNode.getPredecessor().getName();
@@ -567,11 +565,11 @@ public class EDOALOutput extends Output {
 
     public RelationExpression subgraphFormToEDOALProperty(List<String> properties, List<Boolean> inverse, List<ClassExpression> types) {
         RelationExpression expr = null;
-        ArrayList<RelationExpression> setRelComp = new ArrayList<>();
+        List<RelationExpression> setRelComp = new ArrayList<>();
         try {
             for (int i = 0; i < inverse.size(); i++) {
                 RelationExpression rel;
-                ArrayList<RelationExpression> setRelAnd = new ArrayList<>();
+                List<RelationExpression> setRelAnd = new ArrayList<>();
                 if (types.get(i) != null) {
                     setRelAnd.add(new RelationDomainRestriction(types.get(i)));
                 }
@@ -579,7 +577,7 @@ public class EDOALOutput extends Output {
                     setRelAnd.add(new RelationCoDomainRestriction(types.get(i + 1)));
                 }
                 if (inverse.get(i)) {
-                    ArrayList<RelationExpression> setRelInv = new ArrayList<>();
+                    List<RelationExpression> setRelInv = new ArrayList<>();
                     setRelInv.add(new RelationId(new URI(properties.get(i))));
                     rel = new RelationConstruction(Constructor.INVERSE, setRelInv);
                 } else {
@@ -594,7 +592,7 @@ public class EDOALOutput extends Output {
             }
 
             if (properties.isEmpty() && types.size() == 2) {
-                ArrayList<RelationExpression> setRelAnd = new ArrayList<>();
+                List<RelationExpression> setRelAnd = new ArrayList<>();
                 if (types.get(0) != null) {
                     setRelAnd.add(new RelationDomainRestriction(types.get(0)));
                 }
@@ -632,10 +630,10 @@ public class EDOALOutput extends Output {
         List<String> properties = new ArrayList<>();
         List<Boolean> inverse = new ArrayList<>();
         List<ClassExpression> types = new ArrayList<>();
-        if (s instanceof PathSubgraph) {
+        if (s instanceof PathSubgraph ps) {
             try {
 
-                Path p = ((PathSubgraph) s).getMainPath();
+                Path p = ps.getMainPath();
                 inverse = p.getInverse();
 
                 for (int i = 0; i < p.getProperties().size(); i++) {

@@ -1,18 +1,17 @@
-package fr.irit.complex.subgraphs;
+package fr.irit.complex.subgraphs.binary;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import fr.irit.complex.utils.Utils;
+import fr.irit.complex.subgraphs.InstantiatedSubgraph;
+import fr.irit.complex.subgraphs.SubgraphForOutput;
+import fr.irit.complex.subgraphs.unary.SimilarityValues;
 import fr.irit.resource.IRI;
 import fr.irit.resource.IRITypeUtils;
 import fr.irit.resource.Resource;
 import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
+import fr.irit.sparql.query.select.SelectResponse;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class Path extends InstantiatedSubgraph {
     final List<Resource> entities;
@@ -35,65 +34,62 @@ public class Path extends InstantiatedSubgraph {
     private void findPathWithLength(Resource x, Resource y, String sparqlEndpoint, int length) {
         String query;
         StringBuilder queryBody = new StringBuilder();
-        ArrayList<String> variables = new ArrayList<>();
+        List<String> variables = new ArrayList<>();
 
-        if (!x.isIRI()) {
-            variables.add("?x");
-        } else {
-            variables.add(x.toString());
-        }
+        variables.add(!x.isIRI() ? "?x" : x.toString());
 
 
-        for (int i = 1; i <= length - 1; i++) {
+        for (int i = 1; i < length; i++) {
             variables.add("?v" + i);
         }
-        if (!y.isIRI()) {
-            variables.add("?y");
-        } else {
-            variables.add(y.toString());
-        }
+
+        variables.add(!y.isIRI() ? "?y" : y.toString());
+
 
         for (int i = 1; i <= length; i++) {
+            int v1 = i - 1;
+            int v2 = i;
+
             if (inverse.get(i - 1)) {
-                queryBody.append(variables.get(i)).append(" ?p").append(i).append(" ").append(variables.get(i - 1)).append(". \n");
-            } else {
-                queryBody.append(variables.get(i - 1)).append(" ?p").append(i).append(" ").append(variables.get(i)).append(". \n");
+                v1 = i;
+                v2 = i - 1;
             }
+
+            queryBody.append(variables.get(v1))
+                    .append(" ?p")
+                    .append(i)
+                    .append(" ")
+                    .append(variables.get(v2))
+                    .append(". \n");
 
         }
 
         if (!x.isIRI()) {
             queryBody.append("   filter (regex(?x, \"^").append(x).append("$\",\"i\"))\n");
-            //	queryBody += "FILTER(str(?x)="+x.toValueString()+") \n";
         }
         if (!y.isIRI()) {
             queryBody.append("   filter (regex(?y, \"^").append(y).append("$\",\"i\"))\n");
-            //	queryBody += "FILTER(str(?y)="+y.toValueString()+") \n";
         }
 
         query = "SELECT DISTINCT * WHERE { " + queryBody + " }  LIMIT 20";
 
-        //System.out.println(query);
-        //run query
         SparqlProxy spProx = SparqlProxy.getSparqlProxy(sparqlEndpoint);
-        ArrayList<JsonNode> ret;
+        List<Map<String, SelectResponse.Results.Binding>> ret;
+
         try {
             ret = spProx.getResponse(query);
-            Iterator<JsonNode> retIteratorTarg = ret.iterator();
-            //	System.out.println(query);
-            // if more than one result, only take the first one (if instead of while)
+            Iterator<Map<String, SelectResponse.Results.Binding>> retIteratorTarg = ret.iterator();
             if (retIteratorTarg.hasNext()) {
-                JsonNode next = retIteratorTarg.next();
-//				System.out.println(next);
-                if (next.has("x")) {
-                    entities.add(new Resource(next.get("x").get("value").toString().replaceAll("\"", "")));
+                Map<String, SelectResponse.Results.Binding> next = retIteratorTarg.next();
+                if (next.containsKey("x")) {
+                    entities.add(new Resource(next.get("x").getValue().replaceAll("\"", "")));
                 } else {
                     entities.add(x);
                 }
                 int i = 1;
                 boolean stop = false;
                 while (i <= length && !stop) {
-                    String p = next.get("p" + i).get("value").toString().replaceAll("\"", "");
+                    String p = next.get("p" + i).getValue().replaceAll("\"", "");
                     Resource res = new Resource(p);
                     if (p.equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")) {
                         stop = true;
@@ -115,13 +111,12 @@ public class Path extends InstantiatedSubgraph {
                     }
                     i++;
                 }
-                //If a property is rdf:type, remove all properties from list
                 if (stop) {
                     properties = new ArrayList<>();
                 }
                 if (length >= 2 && !stop) {
                     for (int j = 1; j <= length - 1; j++) {
-                        String v = next.get("v" + j).get("value").toString().replaceAll("\"", "");
+                        String v = next.get("v" + j).getValue().replaceAll("\"", "");
                         Resource res = new Resource(v);
                         if (res.isIRI()) {
                             entities.add(new IRI("<" + v + ">"));
@@ -130,8 +125,8 @@ public class Path extends InstantiatedSubgraph {
                         }
                     }
                 }
-                if (next.has("y")) {
-                    entities.add(new Resource(next.get("y").get("value").toString().replaceAll("\"", "")));
+                if (next.containsKey("y")) {
+                    entities.add(new Resource(next.get("y").getValue().replaceAll("\"", "")));
                 } else {
                     entities.add(y);
                 }
@@ -144,48 +139,19 @@ public class Path extends InstantiatedSubgraph {
         }
     }
 
-    public void compareLabel(Set<String> targetLabels, double threshold, String targetEndpoint, double typeThreshold) {
-        similarity = 0;
-        for (IRI prop : properties) {
-            try {
-                prop.retrieveLabels(targetEndpoint);
-                similarity += Utils.similarity(prop.getLabels(), targetLabels, threshold);
-            } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException e) {
-                e.printStackTrace();
-            }
-        }
 
-        for (int i = 0; i < entities.size(); i++) {
-            Resource ent = entities.get(i);
-            if (ent instanceof IRI) {
-                IRI type = types.get(i);
-                if (type != null) {
-                    double scoreType = Utils.similarity(type.getLabels(), targetLabels, threshold);
-                    if (scoreType > typeThreshold) {
-                        typeSimilarity += scoreType;
-                    } else {
-                        types.set(i, null);
-                    }
-                }
-            }
-        }
-        if (pathFound()) {
-            similarity += 0.5;
-        }
-
-        getSimilarity();
-    }
 
     public boolean pathFound() {
         return !properties.isEmpty();
     }
 
+    @Override
     public String toString() {
         StringBuilder ret = new StringBuilder();
         for (int i = 0; i < properties.size(); i++) {
             ret.append(entities.get(i)).append(" ").append(properties.get(i)).append(" ").append(entities.get(i + 1)).append(".  ");
         }
-        return getSimilarity() + " <-> " + ret;
+        return ret.toString();
     }
 
     public String toSubGraphString() {
@@ -216,14 +182,10 @@ public class Path extends InstantiatedSubgraph {
         return ret.toString();
     }
 
-    public double getSimilarity() {
-        return similarity + typeSimilarity;
-    }
-
     public void getMostSimilarTypes(String endpointUrl, Set<String> targetLabels, double threshold) {
         for (Resource r : entities) {
-            if (r instanceof IRI) {
-                IRI type = IRITypeUtils.findMostSimilarType((IRI) r, endpointUrl, targetLabels, threshold);
+            if (r instanceof IRI ri) {
+                IRI type = IRITypeUtils.findMostSimilarType(ri, endpointUrl, targetLabels, threshold);
                 types.add(type);
             } else {
                 types.add(null);
@@ -241,5 +203,30 @@ public class Path extends InstantiatedSubgraph {
 
     public List<Boolean> getInverse() {
         return inverse;
+    }
+
+
+    @Override
+    public SubgraphForOutput toOutput(SimilarityValues sim) {
+
+        return new PathSubgraph(this, sim.similarity());
+    }
+
+
+    public List<Resource> getEntities() {
+        return entities;
+    }
+
+
+    public void setSimilarity(double similarity) {
+        this.similarity = similarity;
+    }
+
+    public double getTypeSimilarity() {
+        return typeSimilarity;
+    }
+
+    public void setTypeSimilarity(double typeSimilarity) {
+        this.typeSimilarity = typeSimilarity;
     }
 }

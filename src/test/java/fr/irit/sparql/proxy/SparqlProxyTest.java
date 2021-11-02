@@ -1,5 +1,6 @@
 package fr.irit.sparql.proxy;
 
+import fr.irit.complex.utils.Parameters;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
 import org.apache.jena.fuseki.embedded.FusekiServer;
@@ -21,18 +22,31 @@ class SparqlProxyTest {
 
     @Test
     public void serveFromFile() throws SparqlEndpointUnreachableException, SparqlQueryMalFormedException, IOException {
-        Dataset ds = DatasetFactory.create("/home/guilherme/Documents/kg/conference/cmt.owl");
+        Dataset ds = DatasetFactory.create(Parameters.class.getResource("/data/o2.ttl").getFile());
         FusekiServer server = FusekiServer.create()
                 .add("/ds", ds, true)
                 .build();
         server.start();
 
         try (RDFConnection conn = RDFConnectionFactory.connect("http://localhost:3330/ds/")) {
-            conn.querySelect("prefix cmt: <http://cmt#>" +
-                    "prefix rdf: <http://www.w3.org/2000/01/rdf-schema#>" +
-                    " SELECT DISTINCT ?s ?p ?o { values ?s { cmt:hasDecision } values ?p {rdf:domain} ?s ?p ?o. ?s rdf:range ?z }", (qs) -> {
-                Resource subject = qs.getResource("s");
-                System.out.printf("Subject: %s, Predicate: %s, Object: %s\n", subject, qs.get("p"), qs.get("o"));
+            conn.querySelect("""
+                        PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+                        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+                        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+                        
+                        SELECT DISTINCT ?x WHERE {
+                        {?x rdfs:seeAlso <http://o1#paper1>.}
+                        UNION{?x owl:sameAs <http://o1#paper1>.}
+                        UNION{?x skos:closeMatch <http://o1#paper1>.}
+                        UNION{?x skos:exactMacth <http://o1#paper1>.}
+                        UNION{<http://o1#paper1> rdfs:seeAlso ?x.}
+                        UNION{<http://o1#paper1> owl:sameAs ?x.}
+                        UNION{<http://o1#paper1> skos:closeMatch ?x.}
+                        UNION{<http://o1#paper1> skos:exactMatch ?x.}
+                        }
+                    """, (qs) -> {
+                Resource subject = qs.getResource("x");
+                System.out.printf("Subject: %s, Predicate: %s, Object: %s\n", subject, qs.get("y"), qs.get("z"));
 
             });
         }

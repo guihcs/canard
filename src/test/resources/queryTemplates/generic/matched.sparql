@@ -1,9 +1,8 @@
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX owl: <http://www.w3.org/2002/07/owl#>
-
 SELECT DISTINCT ?x WHERE {
-{?x rdfs:seeAlso {{uri}}.}
+    {?x rdfs:seeAlso {{uri}}.}
 UNION{?x owl:sameAs {{uri}}.}
 UNION{?x skos:closeMatch {{uri}}.}
 UNION{?x skos:exactMacth {{uri}}.}

@@ -2,11 +2,8 @@ package fr.irit.sparql.query;
 
 import fr.irit.resource.IRI;
 
-import java.util.AbstractMap;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,7 +14,7 @@ import java.util.regex.Pattern;
  */
 public abstract class SparqlQuery {
     protected final HashMap<String, IRI> iriList;
-    protected String from;
+    protected final String from;
     protected String where;
     protected String mainQuery;
     private Set<Entry<String, String>> prefix;
@@ -147,7 +144,7 @@ public abstract class SparqlQuery {
         return prefixes.toString();
     }
 
-    public HashMap<String, IRI> getIRIList() {
+    public Map<String, IRI> getIRIMap() {
         return iriList;
     }
 

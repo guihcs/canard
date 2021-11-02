@@ -106,11 +106,12 @@ public class Parameters {
         }
 
         if (parameters.cqaToBeGenerated) {
+            System.out.println("cqa to be generated");
             CQAGenerator generator = new CQAGenerator(parameters.sourceEndpoint, parameters.cqaFolder);
             generator.cleanCQARepository();
             generator.createCQAs();
         }
-        Path queryFolder = Paths.get(Objects.requireNonNull(Parameters.class.getResource(parameters.cqaFolder)).getPath());
+        Path queryFolder = Paths.get(parameters.cqaFolder);
         if (Files.notExists(queryFolder)){
             throw new IOException("CQA path not exists");
         }

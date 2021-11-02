@@ -1,6 +1,5 @@
 package fr.irit.complex.answer;
 
-import fr.irit.complex.subgraphs.InstantiatedSubgraph;
 import fr.irit.main.ExecutionConfig;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
@@ -25,7 +24,7 @@ public abstract class Answer {
     public void retrieveIRILabels(String endpointURL) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
     }
 
-    public abstract Set<InstantiatedSubgraph> findCorrespondingSubGraph(SparqlSelect query, ExecutionConfig executionConfig) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException;
+    public abstract Set<SubgraphResult> findCorrespondingSubGraph(Set<String> queryLabels, SparqlSelect query, ExecutionConfig executionConfig) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException;
 
     public boolean hasMatch() {
         return false;

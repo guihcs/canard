@@ -1,11 +1,11 @@
 {
   "sourceOntology": {
-    "file": "/home/guilherme/Documents/kg/conference/cmt.owl",
-    "name": "cmt"
+    "file": "/data/o1.ttl",
+    "name": "o1"
   },
   "targetOntology": {
-    "file": "/home/guilherme/Documents/kg/conference/conference.owl",
-    "name": "conference"
+    "file": "/data/o2.ttl",
+    "name": "o2"
   },
   "cqaFolder": "/queryTemplates/conf/",
   "output": [

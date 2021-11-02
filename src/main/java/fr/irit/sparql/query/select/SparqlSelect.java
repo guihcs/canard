@@ -2,20 +2,13 @@ package fr.irit.sparql.query.select;
 
 import fr.irit.sparql.query.SparqlQuery;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
-/**
- * A select query. No keyword has to be explicitly written, except for aggregation attributes and filters.
- */
 public class SparqlSelect extends SparqlQuery {
     private String select;
-    private ArrayList<String> selectFocus;
+    private List<String> selectFocus;
 
     public SparqlSelect(Set<Map.Entry<String, String>> prefix, String from, String select,
                         String where) {
@@ -37,7 +30,8 @@ public class SparqlSelect extends SparqlQuery {
         super(query);
         mainQuery = mainQuery.trim().replaceAll("SELECT", "select").replaceAll("WHERE", "where").replaceAll("\n", " ");
         selectFocus = new ArrayList<>();
-        Pattern pattern = Pattern.compile("""
+
+        final Pattern pattern = Pattern.compile("""
                 select[ \t
                 distncDISTNC]+(\\?[A-Za-z0-9_-]+)[ \t
                 ]+(\\?*[A-Za-z0-9_-]*[ \t
@@ -52,7 +46,8 @@ public class SparqlSelect extends SparqlQuery {
             }
             where = matcher.group(3).trim();
         }
-        Pattern pattern2 = Pattern.compile("""
+
+        final Pattern pattern2 = Pattern.compile("""
                 select([ \t
                 distncDISTNC]+\\?[A-Za-z0-9_-]+[ \t
                 ]+\\?*[A-Za-z0-9_-]*[ \t
@@ -75,6 +70,7 @@ public class SparqlSelect extends SparqlQuery {
     }
 
 
+    @Override
     public String toString() {
         return mainQuery;
     }
@@ -100,7 +96,7 @@ public class SparqlSelect extends SparqlQuery {
         return ret.replaceAll("\n", " ").replaceAll("\"", "\\\"");
     }
 
-    public ArrayList<String> getSelectFocus() {
+    public List<String> getSelectFocus() {
         return selectFocus;
     }
 
@@ -108,5 +104,80 @@ public class SparqlSelect extends SparqlQuery {
 
     public int getFocusLength() {
         return selectFocus.size();
+    }
+
+
+    public static String buildTypesSelect(String value){
+        return "SELECT DISTINCT ?type WHERE {" + value
+                 + " a ?type."
+                + "filter(isIRI(?type))}";
+    }
+
+
+    public static String buildPredicateTriplesSelect(String value) {
+        return "SELECT ?subject ?object WHERE {" +
+                "?subject " + value + " ?object."
+                + "} LIMIT 500";
+    }
+
+    public static String buildObjectTriplesSelect(String value) {
+        return "SELECT ?subject ?predicate WHERE {" +
+                "?subject ?predicate " + value + "."
+                + "MINUS{ ?subject <http://www.w3.org/2002/07/owl#sameAs> " + value + ".}"
+                + "MINUS{ ?subject <http://www.w3.org/2004/02/skos/core#closeMatch> " + value + ".}"
+                + "MINUS{ ?subject <http://www.w3.org/2004/02/skos/core#exactMatch> " + value + ".}"
+                + "}LIMIT 500";
+    }
+
+    public static String buildSubjectTriplesSelect(String value) {
+        return "SELECT ?predicate ?object WHERE {" +
+                value + " ?predicate ?object."
+                + "MINUS{ " + value + " <http://www.w3.org/2002/07/owl#sameAs> ?object.}"
+
+                + "}LIMIT 500";
+    }
+
+    public static String buildExactMatchExistsAsk(String match) {
+        return "ASK {" +
+                "{" + match + " ?z ?x. "
+                + "MINUS {" + match + " <http://www.w3.org/2002/07/owl#sameAs> ?x.}"
+                + "MINUS{ " + match + " <http://www.w3.org/2004/02/skos/core#closeMatch> ?x.}"
+                + "MINUS{ " + match + "  <http://www.w3.org/2004/02/skos/core#exactMatch> ?x.}"
+                + "}" +
+                "UNION{?a ?b " + match + ". "
+                + "MINUS { ?a <http://www.w3.org/2002/07/owl#sameAs> " + match + "}"
+                + "MINUS { ?a <http://www.w3.org/2004/02/skos/core#exactMatch> " + match + "}"
+                + "MINUS { ?a <http://www.w3.org/2004/02/skos/core#closeMatch> " + match + "}"
+                + "}" +
+                "}";
+    }
+
+    public static String buildSelectDistinctClasses(){
+        return """
+                    PREFIX owl: <http://www.w3.org/2002/07/owl#> \s
+                    SELECT distinct ?x WHERE{ \s
+                    ?x a owl:Class.\s
+                    ?y a ?x. filter(isIRI(?x))}""";
+    }
+
+    public static String buildSelectDistinctByClassType(String owlClass){
+        return "SELECT DISTINCT ?x WHERE {  \n" +
+                "?x a <" + owlClass + ">.} ";
+    }
+
+    public static String buildSelectDistinctProperties(){
+        return """
+                    PREFIX owl: <http://www.w3.org/2002/07/owl#> \s
+                    SELECT distinct ?x WHERE{ \s
+                    ?y ?x ?z. {?x a owl:ObjectProperty.}
+                      union{
+                        ?x a owl:DatatypeProperty.}
+                      }""";
+
+    }
+
+    public static String buildBinarySelectDistinct(String owlProp){
+        return "SELECT DISTINCT ?x ?y WHERE {  \n" +
+                "?x <" + owlProp + "> ?y.} ";
     }
 }

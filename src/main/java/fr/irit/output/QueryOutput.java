@@ -1,8 +1,8 @@
 package fr.irit.output;
 
-import fr.irit.complex.subgraphs.PathSubgraph;
+import fr.irit.complex.subgraphs.binary.PathSubgraph;
 import fr.irit.complex.subgraphs.SubgraphForOutput;
-import fr.irit.complex.subgraphs.TripleSubgraph;
+import fr.irit.complex.subgraphs.unary.TripleSubgraph;
 import fr.irit.complex.utils.Parameters;
 import fr.irit.sparql.query.select.SparqlSelect;
 
@@ -10,7 +10,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -46,9 +45,9 @@ public class QueryOutput extends Output {
         int i = 0;
         for (SubgraphForOutput s : output) {
             String outputQuery = "SELECT " + sq.getSelect() + " WHERE {";
-            if (s instanceof TripleSubgraph) {
+            if (s instanceof TripleSubgraph ts) {
                 if (s.toIntensionString().contains("somePredicate")) {
-                    outputQuery += ((TripleSubgraph) s).toSPARQLExtension();
+                    outputQuery += ts.toSPARQLExtension();
                 }
                 else if (s.toIntensionString().contains("someObject") || s.toIntensionString().contains("someSubject")) {
                     if (((TripleSubgraph) s).predicateHasMaxSim()) {
@@ -89,7 +88,7 @@ public class QueryOutput extends Output {
 
     }
 
-    public String toSubgraphForm(String queryContent, ArrayList<String> selectFocus) {
+    public String toSubgraphForm(String queryContent, List<String> selectFocus) {
 
         String ret = queryContent;
         if (selectFocus.size() > 1) {

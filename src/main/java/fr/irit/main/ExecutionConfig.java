@@ -1,11 +1,18 @@
 package fr.irit.main;
 
 import fr.irit.complex.subgraphs.SubgraphForOutput;
+import fr.irit.complex.utils.Parameters;
+import fr.irit.input.CQAManager;
 import fr.irit.input.ParameterException;
-import fr.irit.complex.utils.Utils;
+import fr.irit.output.EDOALOutput;
+import fr.irit.output.Output;
+import fr.irit.output.QueryOutput;
+import fr.irit.output.SPARQLOutput;
+import fr.irit.sparql.client.EmbeddedFuseki;
 import fr.irit.sparql.query.select.SparqlSelect;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ExecutionConfig {
@@ -15,16 +22,16 @@ public class ExecutionConfig {
     private int maxMatches;
     private double similarityThreshold;
     private boolean reassess;
-    private final Utils utils;
+    private Parameters params;
+    private List<Output> outputs;
 
     public ExecutionConfig(String[] args) throws IOException, IllegalArgumentException, ParameterException {
         if (args.length < 1) {
             throw new IllegalArgumentException();
         }
-        utils = Utils.getInstance();
-        utils.init(args[0]);
-        sourceEndpoint = utils.getSourceEndpoint();
-        targetEndpoint = utils.getTargetEndpoint();
+        init(args[0]);
+        sourceEndpoint = params.getSourceEndpoint();
+        targetEndpoint = params.getTargetEndpoint();
         maxMatches = 10;
         similarityThreshold = 0.4;
         reassess = false;
@@ -40,10 +47,26 @@ public class ExecutionConfig {
         }
     }
 
+    private void init(String filePath) throws ParameterException, IOException {
+        params = Parameters.load(filePath);
+        CQAManager.init(params);
+        outputs = new ArrayList<>();
+        if (params.isOutputEDOAL()) {
+            outputs.add(new EDOALOutput(params));
+        }
+        if (params.isOutputQUERY()) {
+            outputs.add(new QueryOutput(params));
 
-    public boolean isSystemCanRun() {
-        return true;
+        }
+        if (params.isOutputSPARQL()) {
+            outputs.add(new SPARQLOutput(params));
+        }
+
+        for (Output o : outputs) {
+            o.init();
+        }
     }
+
 
     public String getSourceEndpoint() {
         return sourceEndpoint;
@@ -66,16 +89,25 @@ public class ExecutionConfig {
     }
 
     public List<SparqlSelect> getQueries(){
-        return utils.getQueries();
+        return params.getQueries();
     }
 
 
     public void end(){
-        utils.end();
+        if (params.isStartEmbeddedFuseki()) {
+            EmbeddedFuseki fusekiServer = EmbeddedFuseki.getFusekiServer();
+            fusekiServer.closeConnection();
+
+        }
+        for (Output o : outputs) {
+            o.end();
+        }
     }
 
 
     public void addToOutput(SparqlSelect sparqlSelect, List<SubgraphForOutput> subgraphForOutputs){
-        utils.addToOutput(sparqlSelect, subgraphForOutputs);
+        for (Output o : outputs) {
+            o.addToOutput(subgraphForOutputs, sparqlSelect);
+        }
     }
 }

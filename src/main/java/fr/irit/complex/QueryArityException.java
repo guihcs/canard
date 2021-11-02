@@ -1,4 +1,12 @@
 package fr.irit.complex;
 
-public class QueryArityException extends Exception{
+import fr.irit.sparql.query.select.SparqlSelect;
+
+public class QueryArityException extends Exception {
+    SparqlSelect sparqlSelect;
+
+    public QueryArityException(SparqlSelect sparqlSelect) {
+        super("ERROR for query : " + sparqlSelect.toUnchangedString() + "\nProblem detected: too many variables in SELECT: can only deal with 1 or 2");
+        this.sparqlSelect = sparqlSelect;
+    }
 }

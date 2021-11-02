@@ -1,32 +1,37 @@
-package fr.irit.complex.subgraphs;
+package fr.irit.complex.subgraphs.binary;
+
+import fr.irit.complex.subgraphs.InstantiatedSubgraph;
+import fr.irit.complex.subgraphs.SubgraphForOutput;
+import fr.irit.complex.subgraphs.unary.SimilarityValues;
 
 import java.util.ArrayList;
 
 public class PathSubgraph extends SubgraphForOutput {
     final ArrayList<Path> paths;
 
-    public PathSubgraph(Path p) {
+    public PathSubgraph(Path p, double sim) {
         paths = new ArrayList<>();
         paths.add(p);
-        similarity = p.getSimilarity();
+        similarity = sim;
     }
 
     public double getAverageSimilarity() {
         return similarity;
     }
 
-    public boolean addSubgraph(Path p) {
+    @Override
+    public boolean addSubgraph(InstantiatedSubgraph p, SimilarityValues sim) {
         boolean added = false;
-        if (p.toSubGraphString().equals(paths.get(0).toSubGraphString())) {
-            addSimilarity(p);
-            paths.add(p);
+        if (((Path) p).toSubGraphString().equals(paths.get(0).toSubGraphString())) {
+            addSimilarity(sim.similarity());
+            paths.add((Path) p);
             added = true;
         }
         return added;
     }
 
-    public void addSimilarity(Path p) {
-        similarity = ((similarity * paths.size()) + p.getSimilarity()) / (paths.size() + 1);
+    public void addSimilarity(double s) {
+        similarity = ((similarity * paths.size()) + s) / (paths.size() + 1);
     }
 
     public String toExtensionString() {
