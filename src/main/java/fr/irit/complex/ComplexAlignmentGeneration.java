@@ -59,44 +59,13 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
 
         System.out.println("step 5, 6, 7 ======================================");
         Set<SubgraphResult> goodGraphs = new HashSet<>();
+
         for (Answer ans : matchedAnswers) {
             if (ans instanceof SingleAnswer singleAnswer) {
-                System.out.println("step 5 ================================");
-                Set<Triple> triples = singleAnswer.getAllTriples(executionConfig.getTargetEndpoint());
-                System.out.println("Found " + triples.size() + " triples");
 
-                double maxSim = Double.NEGATIVE_INFINITY;
-                Triple bestTriple = null;
-                Set<SubgraphResult> goodTriples = new HashSet<>();
-                SimilarityValues maxSimilarityValues = null;
+                Set<Triple> triples = singleAnswer.getAllTriples(queryLabels, executionConfig.getTargetEndpoint(), executionConfig.getSimilarityThreshold());
 
-                double localMaxSim = Double.NEGATIVE_INFINITY;
-
-                for (Triple t : triples) {
-                    t.retrieveIRILabels(executionConfig.getTargetEndpoint());
-                    t.retrieveTypes(executionConfig.getTargetEndpoint());
-                    SimilarityValues similarityValues = t.compareLabel(queryLabels, executionConfig.getSimilarityThreshold(), executionConfig.getTargetEndpoint());
-                    double similarity = similarityValues.similarity();
-
-
-                    if (similarity > maxSim) {
-                        maxSim = similarity;
-                        maxSimilarityValues = similarityValues;
-                        bestTriple = t;
-                    }
-
-                    if (similarity > localMaxSim) {
-                        localMaxSim = similarity;
-                    }
-
-                    if (similarity >= 0.6) {
-                        goodTriples.add(new SubgraphResult(t, similarityValues));
-                    }
-                }
-
-                if (goodTriples.isEmpty() && bestTriple != null) {
-                    goodTriples.add(new SubgraphResult(bestTriple, maxSimilarityValues));
-                }
+                Set<SubgraphResult> goodTriples = getGoodTriples(queryLabels, triples);
 
                 goodGraphs.addAll(goodTriples);
 
@@ -105,9 +74,7 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
                 goodGraphs.addAll(localGraphs);
             }
 
-
         }
-
 
 
         System.out.println("step 8 ? =============================");
@@ -151,7 +118,39 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
         System.out.println("=======================================");
     }
 
+    private Set<SubgraphResult> getGoodTriples(Set<String> queryLabels, Set<Triple> triples) {
+        double maxSim = Double.NEGATIVE_INFINITY;
+        Triple bestTriple = null;
+        Set<SubgraphResult> goodTriples = new HashSet<>();
+        SimilarityValues maxSimilarityValues = null;
 
+        double localMaxSim = Double.NEGATIVE_INFINITY;
+
+        for (Triple t : triples) {
+
+            SimilarityValues similarityValues = t.compareLabel(queryLabels, executionConfig.getSimilarityThreshold());
+            double similarity = similarityValues.similarity();
+
+            if (similarity > maxSim) {
+                maxSim = similarity;
+                maxSimilarityValues = similarityValues;
+                bestTriple = t;
+            }
+
+            if (similarity > localMaxSim) {
+                localMaxSim = similarity;
+            }
+
+            if (similarity >= 0.6) {
+                goodTriples.add(new SubgraphResult(t, similarityValues));
+            }
+        }
+
+        if (goodTriples.isEmpty() && bestTriple != null) {
+            goodTriples.add(new SubgraphResult(bestTriple, maxSimilarityValues));
+        }
+        return goodTriples;
+    }
 
 
     private Set<Answer> matchAnswers(List<Answer> answers) throws SparqlEndpointUnreachableException, SparqlQueryMalFormedException {
@@ -206,7 +205,7 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
     private List<Answer> getUnaryAnswers(SparqlSelect sparqlSelect, List<Map<String, SelectResponse.Results.Binding>> ret) {
         List<Answer> answers = new ArrayList<>();
         for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            String s = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getValue().replaceAll("\"", "");
+            String s = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getValue();
             String type = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getType().replaceAll("\"", "");
             if (!type.equals("bnode")) {
                 SingleAnswer singleton = new SingleAnswer(new Resource(s));
@@ -220,8 +219,8 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
     private List<Answer> getBinaryAnswers(SparqlSelect sparqlSelect, List<Map<String, SelectResponse.Results.Binding>> ret) {
         List<Answer> answers = new ArrayList<>();
         for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            String s1 = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getValue().replaceAll("\"", "");
-            String s2 = response.get(sparqlSelect.getSelectFocus().get(1).replaceFirst("\\?", "")).getValue().replaceAll("\"", "");
+            String s1 = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getValue();
+            String s2 = response.get(sparqlSelect.getSelectFocus().get(1).replaceFirst("\\?", "")).getValue();
             String type1 = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getType().replaceAll("\"", "");
             String type2 = response.get(sparqlSelect.getSelectFocus().get(1).replaceFirst("\\?", "")).getType().replaceAll("\"", "");
             if (!type1.equals("bnode") && !type2.equals("bnode")) {

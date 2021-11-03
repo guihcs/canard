@@ -48,7 +48,7 @@ public class IRITypeUtils {
         List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(sq.getMainQueryWithPrefixes());
 
         for (Map<String, SelectResponse.Results.Binding> jsonNode : ret) {
-            String s = jsonNode.get("type").getValue().replaceAll("\"", "");
+            String s = jsonNode.get("type").getValue();
             iri.getTypes().add(new IRI("<" + s + ">"));
         }
 

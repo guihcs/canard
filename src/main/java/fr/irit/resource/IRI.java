@@ -45,7 +45,7 @@ public class IRI extends Resource {
         List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(literalQuery);
 
         for (Map<String, SelectResponse.Results.Binding> jsonNode : ret) {
-            String s = jsonNode.get("x").getValue().replaceAll("\"", "");
+            String s = jsonNode.get("x").getValue();
             Resource res = new Resource(s);
             if (!res.isIRI()) {
                 addLabel(s);
@@ -66,7 +66,7 @@ public class IRI extends Resource {
         List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(sq.getMainQueryWithPrefixes());
 
         for (Map<String, SelectResponse.Results.Binding> stringBindingMap : ret) {
-            String s = stringBindingMap.get("type").getValue().replaceAll("\"", "");
+            String s = stringBindingMap.get("type").getValue();
             types.add(new IRI("<" + s + ">"));
         }
         for (IRI type: types){
@@ -104,7 +104,7 @@ public class IRI extends Resource {
         SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpoint);
         List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
         for (Map<String, SelectResponse.Results.Binding> node : ret) {
-            String s = node.get("x").getValue().replaceAll("\"", "");
+            String s = node.get("x").getValue();
             Resource res = new Resource(s);
             if (res.isIRI()) {
                 allMatches.add(new IRI("<" + s + ">"));
@@ -145,7 +145,7 @@ public class IRI extends Resource {
                     List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(litteralQuery);
 
                     for (Map<String, SelectResponse.Results.Binding> jsonNode : ret) {
-                        String s = jsonNode.get("x").getValue().replaceAll("\"", "");
+                        String s = jsonNode.get("x").getValue();
                         similarIRIs.add(new IRI("<" + s + ">"));
                     }
                 }

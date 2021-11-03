@@ -20,7 +20,7 @@ public class ExecutionConfig {
     private final String sourceEndpoint;
     private final String targetEndpoint;
     private int maxMatches;
-    private double similarityThreshold;
+    private float similarityThreshold;
     private boolean reassess;
     private Parameters params;
     private List<Output> outputs;
@@ -33,14 +33,14 @@ public class ExecutionConfig {
         sourceEndpoint = params.getSourceEndpoint();
         targetEndpoint = params.getTargetEndpoint();
         maxMatches = 10;
-        similarityThreshold = 0.4;
+        similarityThreshold = 0.4f;
         reassess = false;
         if (args.length == 3) {
             maxMatches = Integer.parseInt(args[1]);
-            similarityThreshold = Double.parseDouble(args[2]);
+            similarityThreshold = Float.parseFloat(args[2]);
         } else if (args.length == 4) {
             maxMatches = Integer.parseInt(args[1]);
-            similarityThreshold = Double.parseDouble(args[2]);
+            similarityThreshold = Float.parseFloat(args[2]);
             if (args[3].equals("reassess")) {
                 reassess = true;
             }
@@ -80,7 +80,7 @@ public class ExecutionConfig {
         return maxMatches;
     }
 
-    public double getSimilarityThreshold() {
+    public float getSimilarityThreshold() {
         return similarityThreshold;
     }
 

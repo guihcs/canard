@@ -182,7 +182,7 @@ public class SparqlProxy {
         List<Map<String, SelectResponse.Results.Binding>> response = spIn.getResponse(literalQuery);
 
         for (Map<String, SelectResponse.Results.Binding> jsonNode : response) {
-            String s = jsonNode.get("x").getValue().replaceAll("\"", "");
+            String s = jsonNode.get("x").getValue();
             Resource res = new Resource(s);
             if (!res.isIRI()) {
                 addLabel(labels, s);

@@ -2,11 +2,10 @@ package fr.irit.complex.answer.unary;
 
 import fr.irit.complex.answer.Answer;
 import fr.irit.complex.answer.SubgraphResult;
-import fr.irit.complex.subgraphs.unary.SimilarityValues;
-import fr.irit.complex.subgraphs.unary.Triple;
-import fr.irit.complex.subgraphs.unary.TripleType;
+import fr.irit.complex.subgraphs.unary.*;
 import fr.irit.main.ExecutionConfig;
 import fr.irit.resource.IRI;
+import fr.irit.resource.IRITypeUtils;
 import fr.irit.resource.Resource;
 import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
@@ -55,7 +54,7 @@ public class SingleAnswer extends Answer {
 
 
     @Override
-    public Set<SubgraphResult> findCorrespondingSubGraph(Set<String> queryLabels, SparqlSelect query, ExecutionConfig executionConfig) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public Set<SubgraphResult> findCorrespondingSubGraph(Set<String> queryLabels, SparqlSelect query, ExecutionConfig executionConfig) {
 
 
         return new HashSet<>();
@@ -67,7 +66,7 @@ public class SingleAnswer extends Answer {
 
 
 
-    public Set<Triple> getAllTriples(String targetEndpoint) throws SparqlEndpointUnreachableException, SparqlQueryMalFormedException {
+    public Set<Triple> getAllTriples(Set<String> queryLabels, String targetEndpoint, float threshold) throws SparqlEndpointUnreachableException, SparqlQueryMalFormedException {
         Set<Triple> triples = new HashSet<>();
         int count = 0;
         for (IRI iri : res.getSimilarIRIs()) {
@@ -75,63 +74,94 @@ public class SingleAnswer extends Answer {
                 continue;
             }
             count++;
-            triples.addAll(getSubjectTriples(targetEndpoint, iri.getValue()));
-            triples.addAll(getObjectTriples(targetEndpoint, iri.getValue()));
-            triples.addAll(getPredicateTriples(targetEndpoint, iri.getValue()));
+            triples.addAll(getSubjectTriples(queryLabels, targetEndpoint, iri, threshold));
+            triples.addAll(getObjectTriples(queryLabels, targetEndpoint, iri, threshold));
+            triples.addAll(getPredicateTriples(queryLabels, targetEndpoint, iri, threshold));
         }
         return triples;
     }
 
 
-    private Set<Triple> getPredicateTriples(String targetEndpoint, String value) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    private Set<Triple> getPredicateTriples(Set<String> queryLabels, String targetEndpoint, IRI value, float threshold) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
         Set<Triple> triples = new HashSet<>();
-
-        String query = SparqlSelect.buildPredicateTriplesSelect(value);
+        String query = SparqlSelect.buildPredicateTriplesSelect(value.getValue());
 
         SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
-
         List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
 
         for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            String sub = response.get("subject").getValue().replaceAll("\"", "");
-            String obj = response.get("object").getValue().replaceAll("\"", "");
-            triples.add(new Triple("<" + sub + ">", value, obj, TripleType.PREDICATE));
-        }
-        return triples;
-    }
+            IRI sub =  new IRI("<" + response.get("subject").getValue() + ">");
+            String obj = response.get("object").getValue();
 
-    private Set<Triple> getObjectTriples(String targetEndpoint, String value) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
-        Set<Triple> triples = new HashSet<>();
-        String query = SparqlSelect.buildObjectTriplesSelect(value);
-
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
-
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
-
-        for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            String sub = response.get("subject").getValue().replaceAll("\"", "");
-            String pred = response.get("predicate").getValue().replaceAll("\"", "");
-            triples.add(new Triple("<" + sub + ">", "<" + pred + ">", value, TripleType.OBJECT));
-        }
-        return triples;
-    }
-
-    private Set<Triple> getSubjectTriples(String targetEndpoint, String value) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
-        Set<Triple> triples = new HashSet<>();
-        String query = SparqlSelect.buildSubjectTriplesSelect(value);
-
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
-
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
-
-        for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            if (!response.get("object").getValue().matches("\"b[0-9]+\"")) {
-                String pred = response.get("predicate").getValue().replaceAll("\"", "");
-                String obj = response.get("object").getValue().replaceAll("\"", "");
-                triples.add(new Triple(value, "<" + pred + ">", obj, TripleType.SUBJECT));
+            Resource object = new Resource(obj);
+            if (object.isIRI()) {
+                object = new IRI("<" + obj.replaceAll("[<>]", "") + ">");
             }
 
+            Triple triple = new PredicateTriple(sub, value, object);
+            IRI subjectType = IRITypeUtils.findMostSimilarType(sub, targetEndpoint, queryLabels, threshold);
+            triple.setSubjectType(subjectType);
+
+            triple.retrieveIRILabels(targetEndpoint);
+            triple.retrieveTypes(targetEndpoint);
+            triples.add(triple);
+
         }
+        return triples;
+    }
+
+    private Set<Triple> getObjectTriples(Set<String> queryLabels, String targetEndpoint, IRI value, float threshold) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+        Set<Triple> triples = new HashSet<>();
+        String query = SparqlSelect.buildObjectTriplesSelect(value.getValue());
+
+        SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
+        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
+
+        for (Map<String, SelectResponse.Results.Binding> response : ret) {
+            IRI sub =  new IRI("<" + response.get("subject").getValue() + ">");
+            IRI pred = new IRI("<" + response.get("predicate").getValue() + ">");
+
+            Triple triple = new ObjectTriple(sub, pred, value);
+
+            IRI subjectType = IRITypeUtils.findMostSimilarType(sub, targetEndpoint, queryLabels, threshold);
+            triple.setSubjectType(subjectType);
+
+            triple.retrieveIRILabels(targetEndpoint);
+            triple.retrieveTypes(targetEndpoint);
+            triples.add(triple);
+        }
+        return triples;
+    }
+
+    private Set<Triple> getSubjectTriples(Set<String> queryLabels, String targetEndpoint, IRI value, float threshold) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+        Set<Triple> triples = new HashSet<>();
+        String query = SparqlSelect.buildSubjectTriplesSelect(value.getValue());
+
+        SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
+        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
+
+        for (Map<String, SelectResponse.Results.Binding> response : ret) {
+            if (response.get("object").getValue().matches("\"b[0-9]+\"")) continue;
+
+            IRI pred = new IRI("<" + response.get("predicate").getValue() + ">");
+            String obj = response.get("object").getValue();
+            Resource object = new Resource(obj);
+            if (object.isIRI()) {
+                object = new IRI("<" + obj.replaceAll("[<>]", "") + ">");
+            }
+
+            Triple triple = new SubjectTriple(value, pred, object);
+
+            if(object instanceof IRI to) {
+                IRI objectType = IRITypeUtils.findMostSimilarType(to, targetEndpoint, queryLabels, threshold);
+                triple.setObjectType(objectType);
+            }
+
+            triple.retrieveIRILabels(targetEndpoint);
+            triple.retrieveTypes(targetEndpoint);
+            triples.add(triple);
+        }
+
         return triples;
     }
 

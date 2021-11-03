@@ -42,7 +42,7 @@ public class Resource {
         List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
 
         for(Map<String, SelectResponse.Results.Binding> node : ret) {
-            String s = node.get("x").getValue().replaceAll("\"", "");
+            String s = node.get("x").getValue();
             similarIRIs.add(new IRI("<" + s + ">"));
         }
 
@@ -51,7 +51,7 @@ public class Resource {
         ret = spIn.getResponse(query);
 
         for(Map<String, SelectResponse.Results.Binding> node : ret) {
-            String s = node.get("x").getValue().replaceAll("\"", "");
+            String s = node.get("x").getValue();
             similarIRIs.add(new IRI("<" + s + ">"));
         }
 
@@ -59,7 +59,7 @@ public class Resource {
         ret = spIn.getResponse(query);
 
         for(Map<String, SelectResponse.Results.Binding> node : ret) {
-            String s = node.get("x").getValue().replaceAll("\"", "");
+            String s = node.get("x").getValue();
             similarIRIs.add(new IRI("<" + s + ">"));
         }
 
@@ -99,4 +99,7 @@ public class Resource {
     }
 
 
+    public boolean isType() {
+        return toString().equals("<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>");
+    }
 }

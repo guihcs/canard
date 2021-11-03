@@ -27,7 +27,7 @@ public class SelectResponse {
             }
 
             public String getValue() {
-                return value;
+                return value.replaceAll("\"", "");
             }
         }
         private List<Map<String, Binding>> bindings;

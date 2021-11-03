@@ -4,7 +4,6 @@ import fr.irit.complex.subgraphs.InstantiatedSubgraph;
 import fr.irit.complex.subgraphs.SubgraphForOutput;
 import fr.irit.complex.utils.Utils;
 import fr.irit.resource.IRI;
-import fr.irit.resource.IRITypeUtils;
 import fr.irit.resource.Resource;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
@@ -12,7 +11,7 @@ import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
 import java.util.HashSet;
 import java.util.Set;
 
-public class Triple extends InstantiatedSubgraph {
+public abstract class Triple extends InstantiatedSubgraph {
     public boolean keepObjectType;
     public boolean keepSubjectType;
     private final IRI subject;
@@ -23,104 +22,34 @@ public class Triple extends InstantiatedSubgraph {
     private IRI objectType;
 
 
-    public Triple(String sub, String pred, String obj, TripleType type) {
-        subject = new IRI(sub);
-        predicate = new IRI(pred);
-        Resource r = new Resource(obj);
-        if (r.isIRI()) {
-            object = new IRI("<" + obj.replaceAll("[<>]", "") + ">");
-        } else {
-            object = r;
-        }
+    public Triple(IRI sub, IRI pred, Resource obj, TripleType type) {
+        subject = sub;
+        predicate = pred;
+        object = obj;
         this.type = type;
         keepObjectType = false;
         keepSubjectType = false;
     }
 
-    public void retrieveIRILabels(String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
-        if (type!= TripleType.SUBJECT){
-            subject.retrieveLabels(targetEndpoint);
-        }
-        if(type!= TripleType.PREDICATE){
-            predicate.retrieveLabels(targetEndpoint);
-        }
-        if(type != TripleType.OBJECT && object instanceof IRI){
-            ((IRI)object).retrieveLabels(targetEndpoint);
-        }
-    }
+    public void retrieveIRILabels(String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException { }
 
-    public void retrieveTypes(String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException{
-        if (type!= TripleType.SUBJECT){
-            subject.retrieveTypes(targetEndpoint);
-        }
-        if(type!= TripleType.PREDICATE){
-            predicate.retrieveTypes(targetEndpoint);
-        }
-        if(type != TripleType.OBJECT && object instanceof IRI){
-            ((IRI)object).retrieveTypes(targetEndpoint);
-        }
-    }
+    public void retrieveTypes(String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException { }
 
-    public int commonPartValue(Triple t) {
-        int res = -1;
-        if (type == t.type) {
-            if (predicate.equals(t.predicate) && !isPredicateTriple()) {
-                res = 2;
-            }
-            if (object.equals(t.object) && !isObjectTriple() && !keepObjectType) {
-                res = 3;
-            }
-            if (subject.equals(t.subject) && !isSubjectTriple() && !keepSubjectType) {
-                res = 1;
-            }
-        }
-        return res;
-    }
+    public int commonPartValue(Triple t) { return -1; }
 
     public boolean hasCommonPart(Triple t) {
-        boolean res = false;
-        if (type == t.type) {
-            if (!isSubjectTriple()) {
-                res = subject.equals(t.subject);
-            }
-            if (!isPredicateTriple()) {
-                res = res || predicate.equals(t.predicate);
-            }
-            if (!isObjectTriple()) {
-                res = res || object.equals(t.object);
-            }
-        }
-        return res;
+        return commonPartValue(t) != -1;
     }
 
-    public SimilarityValues compareLabel(Set<String> targetLabels, double threshold, String targetEndpoint) {
-        double subjectSimilarity = 0;
-        double predicateSimilarity = 0;
-        double objectSimilarity = 0;
-
-        if (type != TripleType.SUBJECT) {
-            subjectSimilarity = compareSubjectSimilarity(targetLabels, threshold, targetEndpoint);
-
-        }
-        if (type != TripleType.PREDICATE && !predicate.toString().equals("<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>")) {
-            predicateSimilarity = comparePredicateSimilarity(targetLabels, threshold);
-        }
-        if (type != TripleType.OBJECT) {
-            objectSimilarity = compareObjectSimilarity( targetLabels, threshold, targetEndpoint);
-        }
-
-        double similarity = subjectSimilarity + predicateSimilarity + objectSimilarity;
-
-
-        return new SimilarityValues(similarity, subjectSimilarity, predicateSimilarity, objectSimilarity);
-
+    public SimilarityValues compareLabel(Set<String> targetLabels, double threshold) {
+        return null;
     }
 
 
-    private double compareSubjectSimilarity(Set<String> targetLabels, double threshold, String targetEndpoint){
+    protected double compareSubjectSimilarity(Set<String> targetLabels, double threshold){
         double scoreTypeSubMax = 0;
         double subjectSimilarity;
-        subjectType = IRITypeUtils.findMostSimilarType(subject, targetEndpoint, targetLabels, threshold);
+
 
         if (subjectType != null) {
             scoreTypeSubMax = Utils.similarity(subjectType.getLabels(), targetLabels, threshold);
@@ -134,14 +63,15 @@ public class Triple extends InstantiatedSubgraph {
         return subjectSimilarity;
     }
 
-    private double comparePredicateSimilarity(Set<String> targetLabels, double threshold){
+    protected double comparePredicateSimilarity(Set<String> targetLabels, double threshold){
+        if (predicate.isType()) return 0;
         return Utils.similarity(predicate.getLabels(), targetLabels, threshold);
     }
 
-    public double compareObjectSimilarity(Set<String> targetLabels, double threshold, String targetEndpoint){
+    protected double compareObjectSimilarity(Set<String> targetLabels, double threshold){
         double objectSimilarity = 0;
         if(object instanceof IRI to) {
-            objectType = IRITypeUtils.findMostSimilarType(to, targetEndpoint, targetLabels, threshold);
+
             if (objectType != null) {
                 double scoreTypeObMax = Utils.similarity(objectType.getLabels(), targetLabels, threshold);
                 objectSimilarity = Utils.similarity(to.getLabels(), targetLabels, threshold);
@@ -201,6 +131,15 @@ public class Triple extends InstantiatedSubgraph {
 
     public IRI getSubjectType() {
         return subjectType;
+    }
+
+
+    public void setSubjectType(IRI subjectType) {
+        this.subjectType = subjectType;
+    }
+
+    public void setObjectType(IRI objectType) {
+        this.objectType = objectType;
     }
 
     @Override

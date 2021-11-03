@@ -89,7 +89,7 @@ public class Path extends InstantiatedSubgraph {
                 int i = 1;
                 boolean stop = false;
                 while (i <= length && !stop) {
-                    String p = next.get("p" + i).getValue().replaceAll("\"", "");
+                    String p = next.get("p" + i).getValue();
                     Resource res = new Resource(p);
                     if (p.equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")) {
                         stop = true;
@@ -116,7 +116,7 @@ public class Path extends InstantiatedSubgraph {
                 }
                 if (length >= 2 && !stop) {
                     for (int j = 1; j <= length - 1; j++) {
-                        String v = next.get("v" + j).getValue().replaceAll("\"", "");
+                        String v = next.get("v" + j).getValue();
                         Resource res = new Resource(v);
                         if (res.isIRI()) {
                             entities.add(new IRI("<" + v + ">"));
