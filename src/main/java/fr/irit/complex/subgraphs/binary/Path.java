@@ -3,8 +3,9 @@ package fr.irit.complex.subgraphs.binary;
 import fr.irit.complex.subgraphs.InstantiatedSubgraph;
 import fr.irit.complex.subgraphs.SubgraphForOutput;
 import fr.irit.complex.subgraphs.unary.SimilarityValues;
+import fr.irit.complex.utils.Utils;
 import fr.irit.resource.IRI;
-import fr.irit.resource.IRITypeUtils;
+import fr.irit.resource.IRIUtils;
 import fr.irit.resource.Resource;
 import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
@@ -139,6 +140,46 @@ public class Path extends InstantiatedSubgraph {
         }
     }
 
+    public double compareLabel(Set<String> targetLabels, double threshold, String targetEndpoint, double typeThreshold){
+        // compare property path labels to target labels : first similarity of the path
+        similarity = 0;
+        for(IRI prop: properties) {
+            try {
+                IRIUtils.retrieveLabels(prop, targetEndpoint);
+                similarity += Utils.similarity(prop.getLabels(), targetLabels, threshold);
+            } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException e) {
+                e.printStackTrace();
+            }
+        }
+
+        //for each entity, compare the similarity of its most similarType to the target label.
+        for (int i =0; i< entities.size();i++) {
+            Resource ent = entities.get(i);
+            //System.out.println(ent);
+            if (ent instanceof IRI) {
+                IRI type = types.get(i);
+                if (type !=null) {
+                    double scoreType = Utils.similarity(type.getLabels(), targetLabels, threshold);
+                    // If the type similarity is higher than the first path sim,
+                    //System.out.println("prop "+ this.similarity+ " <-> "+type+" "+scoreType);
+                    if (scoreType > typeThreshold) {
+                        // keep the type and add the type similarity value to the final score
+                        typeSimilarity+=scoreType;
+                    }
+                    else {
+                        types.set(i, null);
+                    }
+                }
+            }
+        }
+        //	System.out.println(this.types.size());
+        if(pathFound()) {
+            similarity+=0.5;//if path
+        }
+
+        return getSimilarity();
+    }
+
 
 
     public boolean pathFound() {
@@ -185,7 +226,7 @@ public class Path extends InstantiatedSubgraph {
     public void getMostSimilarTypes(String endpointUrl, Set<String> targetLabels, double threshold) {
         for (Resource r : entities) {
             if (r instanceof IRI ri) {
-                IRI type = IRITypeUtils.findMostSimilarType(ri, endpointUrl, targetLabels, threshold);
+                IRI type = IRIUtils.findMostSimilarType(ri, endpointUrl, targetLabels, threshold);
                 types.add(type);
             } else {
                 types.add(null);
@@ -228,5 +269,11 @@ public class Path extends InstantiatedSubgraph {
 
     public void setTypeSimilarity(double typeSimilarity) {
         this.typeSimilarity = typeSimilarity;
+    }
+
+
+    @Override
+    public double getSimilarity() {
+        return similarity + typeSimilarity;
     }
 }

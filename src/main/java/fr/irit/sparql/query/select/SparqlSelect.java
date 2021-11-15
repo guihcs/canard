@@ -8,23 +8,7 @@ import java.util.regex.Pattern;
 
 public class SparqlSelect extends SparqlQuery {
     private String select;
-    private List<String> selectFocus;
-
-    public SparqlSelect(Set<Map.Entry<String, String>> prefix, String from, String select,
-                        String where) {
-        super(prefix, from, where);
-        setSelect(select);
-    }
-
-    public SparqlSelect(Set<Map.Entry<String, String>> prefix, String select, String where) {
-        super(prefix, "", where);
-        setSelect(select);
-    }
-
-    public SparqlSelect(String select, String where) {
-        super(new HashSet<>(), "", where);
-        setSelect(select);
-    }
+    private final List<String> selectFocus;
 
     public SparqlSelect(String query) {
         super(query);

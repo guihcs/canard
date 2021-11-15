@@ -1,6 +1,5 @@
 package fr.irit.resource;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import fr.irit.input.CQAManager;
 import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
@@ -9,12 +8,11 @@ import fr.irit.sparql.query.select.SelectResponse;
 import fr.irit.sparql.query.select.SparqlSelect;
 
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class IRI extends Resource {
-    private final HashSet<String> labels;
-    private final HashSet<IRI> types;
+    private final Set<String> labels;
+    private final Set<IRI> types;
     private boolean labelsGot;
     private final Pattern pattern = Pattern.compile("<([^>]+)[#/]([A-Za-z0-9_-]+)>");
 
@@ -25,54 +23,8 @@ public class IRI extends Resource {
         labelsGot = false;
     }
 
-    public void retrieveLabels(String endpointUrl) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
-        if (labelsGot) return;
-
-        Matcher matcher = pattern.matcher(value);
-
-        if (matcher.find()) {
-            addLabel(matcher.group(2));
-        } else {
-            addLabel(value);
-        }
 
 
-        Map<String, String> substitution = new HashMap<>();
-        substitution.put("uri", value);
-        String literalQuery = CQAManager.getInstance().getLabelQuery(endpointUrl, substitution);
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpointUrl);
-
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(literalQuery);
-
-        for (Map<String, SelectResponse.Results.Binding> jsonNode : ret) {
-            String s = jsonNode.get("x").getValue();
-            Resource res = new Resource(s);
-            if (!res.isIRI()) {
-                addLabel(s);
-            }
-
-        }
-        labelsGot = true;
-    }
-
-    public void retrieveTypes(String endpointUrl) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException{
-        String query = "SELECT DISTINCT ?type WHERE {" +
-                value +" a ?type."
-                + "filter(isIRI(?type))}";
-        SparqlSelect sq = new SparqlSelect(query);
-
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpointUrl);
-
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(sq.getMainQueryWithPrefixes());
-
-        for (Map<String, SelectResponse.Results.Binding> stringBindingMap : ret) {
-            String s = stringBindingMap.get("type").getValue();
-            types.add(new IRI("<" + s + ">"));
-        }
-        for (IRI type: types){
-            type.retrieveLabels(endpointUrl);
-        }
-    }
 
 
     public void addLabel(String label) {
@@ -125,7 +77,7 @@ public class IRI extends Resource {
     public void findSimilarResource(String targetEndpoint) {
         try {
             if (labels.isEmpty()) {
-                retrieveLabels(targetEndpoint);
+                IRIUtils.retrieveLabels(this, targetEndpoint);
             }
 
             for (String rawLab : labels) {
@@ -158,12 +110,25 @@ public class IRI extends Resource {
     }
 
 
-    public HashSet<String> getLabels() {
+    public Set<String> getLabels() {
         return labels;
     }
 
 
     public Set<IRI> getTypes() {
         return types;
+    }
+
+
+    public boolean isLabelsGot() {
+        return labelsGot;
+    }
+
+    public void setLabelsGot(boolean labelsGot) {
+        this.labelsGot = labelsGot;
+    }
+
+    public Pattern getPattern() {
+        return pattern;
     }
 }

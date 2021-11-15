@@ -5,6 +5,7 @@ import fr.irit.complex.subgraphs.unary.Triple;
 import fr.irit.complex.subgraphs.unary.TripleSubgraph;
 import fr.irit.complex.utils.Parameters;
 import fr.irit.resource.IRI;
+import fr.irit.resource.Resource;
 import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.exceptions.IncompleteSubstitutionException;
 import fr.irit.sparql.files.QueryTemplate;
@@ -103,7 +104,7 @@ public class SPARQLOutput extends Output {
         return query;
     }
 
-    public void pushLabels(HashSet<String> labels, String uri, SparqlProxy spOutput) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public void pushLabels(Set<String> labels, String uri, SparqlProxy spOutput) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
         Map<String, String> substitution = new HashMap<>();
         for (String l : labels) {
             if (!l.equals("")) {
@@ -174,7 +175,7 @@ public class SPARQLOutput extends Output {
                     substitution.put("triple", "<" + outputIRI + "triple_" + cellHashCode + j + ">");
                     substitution.put("predicate", t.getPredicate().toString());
                     substitution.put("similarity", "\"" + tripleSubgraph.getSimilarityMap().get(t) + "\"^^xsd:float");
-                    substitution.put("instance", t.getAnswer().toString());
+                    substitution.put("instance", getAnswer(t).toString());
                     if (t.keepObjectType) {
                         substitution.put("object", t.getObjectType().toString());
                     } else {
@@ -221,6 +222,15 @@ public class SPARQLOutput extends Output {
             }
         }
 
+    }
+
+
+    public Resource getAnswer(Triple triple) {
+        return switch (triple.getType()) {
+            case SUBJECT -> triple.getSubject();
+            case PREDICATE -> triple.getPredicate();
+            case OBJECT -> triple.getObject();
+        };
     }
 
     @Override

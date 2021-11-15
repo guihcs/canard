@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * queries.
  */
 public abstract class SparqlQuery {
-    protected final HashMap<String, IRI> iriList;
+    protected final Map<String, IRI> iriList;
     protected final String from;
     protected String where;
     protected String mainQuery;
@@ -79,8 +79,10 @@ public abstract class SparqlQuery {
     }
 
     public void retrieveIRIs() {
+
         Pattern patternIRI = Pattern.compile("<[^>]+>");
         Matcher matcherIRI = patternIRI.matcher(mainQuery);
+
         while (matcherIRI.find()) {
             if (!matcherIRI.group().equals("<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>")) {
                 IRI iri = new IRI(matcherIRI.group());

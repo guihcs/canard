@@ -47,17 +47,17 @@ public class TripleSubgraph extends SubgraphForOutput {
         if (triples.get(0).toString().equals(t.toString())) {
             triples.add((Triple) t);
             added = true;
-        } else if (triples.get(0).hasCommonPart((Triple) t) && commonPart == -1) {
-            if (!triples.get(0).getPredicate().toString().equals("<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>") || triples.get(0).commonPartValue((Triple) t) != 2) {
+        } else if ( hasCommonPart(triples.get(0), (Triple) t) && commonPart == -1) {
+            if (!triples.get(0).getPredicate().toString().equals("<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>") || commonPartValue(triples.get(0), (Triple) t) != 2) {
                 addSimilarity(s.similarity());
                 triples.add((Triple) t);
                 similarityMap.put((Triple) t, s);
 
-                commonPart = triples.get(0).commonPartValue((Triple) t);
+                commonPart = commonPartValue(triples.get(0), (Triple) t);
                 added = true;
             }
 
-        } else if (triples.get(0).hasCommonPart((Triple) t) && triples.get(0).commonPartValue((Triple) t) == commonPart) {
+        } else if (hasCommonPart(triples.get(0), (Triple) t) && commonPartValue(triples.get(0), (Triple) t) == commonPart) {
             if (!triples.get(0).getPredicate().toString().equals("<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>") || commonPart != 2) {
                 addSimilarity(s.similarity());
                 triples.add((Triple) t);
@@ -66,6 +66,45 @@ public class TripleSubgraph extends SubgraphForOutput {
             }
         }
         return added;
+    }
+
+
+    public boolean hasCommonPart(Triple a, Triple b) {
+        return commonPartValue(a, b) != -1;
+    }
+
+    public int commonPartValue(Triple a, Triple b) {
+        int res = -1;
+        if (a.getType() != b.getType()) return res;
+
+        if (a.getType() == TripleType.SUBJECT) {
+
+            if (a.getPredicate().equals(b.getPredicate())) {
+                res = 2;
+            }
+            if (a.getObject().equals(b.getObject()) && !a.keepObjectType) {
+                res = 3;
+            }
+
+        } else if(a.getType() == TripleType.PREDICATE) {
+
+            if (a.getObject().equals(b.getObject()) && !a.keepObjectType) {
+                res = 3;
+            }
+            if (a.getSubject().equals(b.getSubject()) && !a.keepSubjectType) {
+                res = 1;
+            }
+        } else {
+            if (a.getPredicate().equals(b.getPredicate()) && !a.isPredicateTriple()) {
+                res = 2;
+            }
+
+            if (a.getSubject().equals(b.getSubject()) && !a.isSubjectTriple() && !a.keepSubjectType) {
+                res = 1;
+            }
+
+        }
+        return res;
     }
 
     public void addSimilarity(double s) {
