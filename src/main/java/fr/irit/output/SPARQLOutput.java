@@ -1,14 +1,15 @@
 package fr.irit.output;
 
 import fr.irit.complex.subgraphs.SubgraphForOutput;
+import fr.irit.complex.subgraphs.similarity.TripleSimilarity;
 import fr.irit.complex.subgraphs.unary.Triple;
 import fr.irit.complex.subgraphs.unary.TripleSubgraph;
 import fr.irit.complex.utils.Parameters;
 import fr.irit.resource.IRI;
 import fr.irit.resource.Resource;
-import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.exceptions.IncompleteSubstitutionException;
 import fr.irit.sparql.files.QueryTemplate;
+import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
 import fr.irit.sparql.query.select.SparqlSelect;
@@ -29,7 +30,6 @@ public class SPARQLOutput extends Output {
 
     @Override
     public void init() {
-        SparqlProxy spOutput = SparqlProxy.getSparqlProxy(outputEndpoint);
         String outputIRI = "http://alignment-output#";
         String alignmentHashCode = sourceEndpoint.hashCode() + "-" + targetEndpoint.hashCode();
 
@@ -41,7 +41,7 @@ public class SPARQLOutput extends Output {
         substitution.put("date", "\"" + new Date() + "\"^^xsd:dateTime");
         String createAlignment = createAlignment(substitution);
         try {
-            spOutput.postSparqlUpdateQuery(createAlignment);
+            SparqlProxy.postSparqlUpdateQuery(outputEndpoint, createAlignment);
         } catch (SparqlQueryMalFormedException
                 | SparqlEndpointUnreachableException e) {
             e.printStackTrace();
@@ -93,7 +93,6 @@ public class SPARQLOutput extends Output {
     }
 
 
-
     public String createTriple(Map<String, String> substitution) {
         String query = "";
         try {
@@ -104,13 +103,13 @@ public class SPARQLOutput extends Output {
         return query;
     }
 
-    public void pushLabels(Set<String> labels, String uri, SparqlProxy spOutput) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public void pushLabels(Set<String> labels, String uri) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
         Map<String, String> substitution = new HashMap<>();
         for (String l : labels) {
             if (!l.equals("")) {
                 substitution.put("uri", uri);
                 substitution.put("label", "\"" + l + "\"");
-                spOutput.postSparqlUpdateQuery(createLabel(substitution));
+                SparqlProxy.postSparqlUpdateQuery(outputEndpoint, createLabel(substitution));
             }
         }
     }
@@ -128,7 +127,6 @@ public class SPARQLOutput extends Output {
 
     @Override
     public void addToOutput(List<SubgraphForOutput> output, SparqlSelect query) {
-        SparqlProxy spOutput = SparqlProxy.getSparqlProxy(outputEndpoint);
         String outputIRI = "http://alignment-output#";
         Map<String, String> substitution = new HashMap<>();
 
@@ -142,7 +140,7 @@ public class SPARQLOutput extends Output {
         substitution.put("form", "\"" + query.toSubgraphForm() + "\"");
         String createSourceInstance = createSourceSubgraph(substitution);
         try {
-            spOutput.postSparqlUpdateQuery(createSourceInstance);
+            SparqlProxy.postSparqlUpdateQuery(outputEndpoint, createSourceInstance);
         } catch (SparqlQueryMalFormedException
                 | SparqlEndpointUnreachableException e) {
             e.printStackTrace();
@@ -157,13 +155,13 @@ public class SPARQLOutput extends Output {
             substitution.put("intensionForm", "\"" + s.toIntensionString() + "\"");
             substitution.put("extensionForm", "\"" + s.toExtensionString() + "\"");
             try {
-                spOutput.postSparqlUpdateQuery(createCell(substitution));
+                SparqlProxy.postSparqlUpdateQuery(outputEndpoint, createCell(substitution));
             } catch (SparqlQueryMalFormedException
                     | SparqlEndpointUnreachableException e) {
                 e.printStackTrace();
             }
             try {
-                spOutput.postSparqlUpdateQuery(createTargetSubgraph(substitution));
+                SparqlProxy.postSparqlUpdateQuery(outputEndpoint, createTargetSubgraph(substitution));
             } catch (SparqlQueryMalFormedException
                     | SparqlEndpointUnreachableException e) {
                 e.printStackTrace();
@@ -172,45 +170,49 @@ public class SPARQLOutput extends Output {
             if (s instanceof TripleSubgraph tripleSubgraph) {
                 int j = 0;
                 for (Triple t : tripleSubgraph.getTriples()) {
+                    TripleSimilarity tripleSimilarity = (TripleSimilarity) tripleSubgraph.getSimilarityMap().get(t);
+
                     substitution.put("triple", "<" + outputIRI + "triple_" + cellHashCode + j + ">");
                     substitution.put("predicate", t.getPredicate().toString());
                     substitution.put("similarity", "\"" + tripleSubgraph.getSimilarityMap().get(t) + "\"^^xsd:float");
                     substitution.put("instance", getAnswer(t).toString());
-                    if (t.keepObjectType) {
+                    boolean keepObjectType = tripleSimilarity.canKeepObjectType(t);
+                    if (keepObjectType) {
                         substitution.put("object", t.getObjectType().toString());
                     } else {
                         substitution.put("object", t.getObject().toValueString());
                     }
-                    if (t.keepSubjectType) {
+                    boolean keepSubjectType = tripleSimilarity.canKeepSubjectType(t);
+                    if (keepSubjectType) {
                         substitution.put("subject", t.getSubjectType().toString());
                     } else {
                         substitution.put("subject", t.getSubject().toValueString());
                     }
 
-                    substitution.put("objectSimilarity", "\"" + tripleSubgraph.getSimilarityMap().get(t).objectSimilarity() + "\"^^xsd:float");
-                    substitution.put("subjectSimilarity", "\"" + tripleSubgraph.getSimilarityMap().get(t).subjectSimilarity() + "\"^^xsd:float");
-                    substitution.put("predicateSimilarity", "\"" + tripleSubgraph.getSimilarityMap().get(t).predicateSimilarity() + "\"^^xsd:float");
-                    substitution.put("keepObjectType", "\"" + t.keepObjectType + "\"^^xsd:boolean");
-                    substitution.put("keepSubjectType", "\"" + t.keepSubjectType + "\"^^xsd:boolean");
+                    substitution.put("objectSimilarity", "\"" + tripleSimilarity.getObjectSimilarity() + "\"^^xsd:float");
+                    substitution.put("subjectSimilarity", "\"" + tripleSimilarity.getSubjectSimilarity() + "\"^^xsd:float");
+                    substitution.put("predicateSimilarity", "\"" + tripleSimilarity.getPredicateSimilarity() + "\"^^xsd:float");
+                    substitution.put("keepObjectType", "\"" + keepObjectType + "\"^^xsd:boolean");
+                    substitution.put("keepSubjectType", "\"" + keepSubjectType + "\"^^xsd:boolean");
                     try {
-                        spOutput.postSparqlUpdateQuery(createTriple(substitution));
+                        SparqlProxy.postSparqlUpdateQuery(outputEndpoint, createTriple(substitution));
 
 
-                        if (!t.isSubjectTriple() || !t.keepSubjectType) {
-                            pushLabels(t.getSubject().getLabels(), t.getSubject().toString(), spOutput);
+                        if (!t.isSubjectTriple() || !keepSubjectType) {
+                            pushLabels(t.getSubject().getLabels(), t.getSubject().toString());
                         }
-                        if (!t.isObjectTriple() || !t.keepObjectType) {
+                        if (!t.isObjectTriple() || !keepObjectType) {
                             if (t.getObject() instanceof IRI to) {
-                                pushLabels(to.getLabels(), t.getObject().toString(), spOutput);
+                                pushLabels(to.getLabels(), t.getObject().toString());
                             }
                         }
-                        pushLabels(t.getPredicate().getLabels(), t.getPredicate().toString(), spOutput);
+                        pushLabels(t.getPredicate().getLabels(), t.getPredicate().toString());
 
-                        if (t.keepSubjectType) {
-                            pushLabels(t.getSubjectType().getLabels(), t.getSubjectType().toString(), spOutput);
+                        if (keepSubjectType) {
+                            pushLabels(t.getSubjectType().getLabels(), t.getSubjectType().toString());
                         }
-                        if (t.keepObjectType) {
-                            pushLabels(t.getObjectType().getLabels(), t.getObjectType().toString(), spOutput);
+                        if (keepObjectType) {
+                            pushLabels(t.getObjectType().getLabels(), t.getObjectType().toString());
                         }
                     } catch (SparqlQueryMalFormedException
                             | SparqlEndpointUnreachableException e) {
@@ -227,6 +229,7 @@ public class SPARQLOutput extends Output {
 
     public Resource getAnswer(Triple triple) {
         return switch (triple.getType()) {
+            case NONE -> null;
             case SUBJECT -> triple.getSubject();
             case PREDICATE -> triple.getPredicate();
             case OBJECT -> triple.getObject();

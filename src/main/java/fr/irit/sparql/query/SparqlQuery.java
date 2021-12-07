@@ -19,15 +19,6 @@ public abstract class SparqlQuery {
     protected String mainQuery;
     private Set<Entry<String, String>> prefix;
 
-    public SparqlQuery(Set<Entry<String, String>> prefix, String from, String where) {
-        this.prefix = new HashSet<>();
-        this.prefix.addAll(prefix);
-        addDefaultPrefixes();
-        this.from = from;
-        this.where = where;
-        iriList = new HashMap<>();
-    }
-
     public SparqlQuery(String query) {
         prefix = new HashSet<>();
         iriList = new HashMap<>();
@@ -121,10 +112,6 @@ public abstract class SparqlQuery {
         return query;
     }
 
-    public Set<Entry<String, String>> getPrefix() {
-        return prefix;
-    }
-
     public void setPrefix(Set<Entry<String, String>> prefix) {
         this.prefix = prefix;
     }
@@ -136,14 +123,6 @@ public abstract class SparqlQuery {
 
     public void setWhere(String where) {
         this.where = where;
-    }
-
-    public String formatPrefixes() {
-        StringBuilder prefixes = new StringBuilder();
-        for (Entry<String, String> p : getPrefix()) {
-            prefixes.append("PREFIX ").append(p.getKey()).append(": ").append(p.getValue()).append(" \n");
-        }
-        return prefixes.toString();
     }
 
     public Map<String, IRI> getIRIMap() {

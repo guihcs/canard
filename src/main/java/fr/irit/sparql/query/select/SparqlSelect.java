@@ -136,28 +136,10 @@ public class SparqlSelect extends SparqlQuery {
                 "}";
     }
 
-    public static String buildSelectDistinctClasses(){
-        return """
-                    PREFIX owl: <http://www.w3.org/2002/07/owl#> \s
-                    SELECT distinct ?x WHERE{ \s
-                    ?x a owl:Class.\s
-                    ?y a ?x. filter(isIRI(?x))}""";
-    }
 
     public static String buildSelectDistinctByClassType(String owlClass){
         return "SELECT DISTINCT ?x WHERE {  \n" +
                 "?x a <" + owlClass + ">.} ";
-    }
-
-    public static String buildSelectDistinctProperties(){
-        return """
-                    PREFIX owl: <http://www.w3.org/2002/07/owl#> \s
-                    SELECT distinct ?x WHERE{ \s
-                    ?y ?x ?z. {?x a owl:ObjectProperty.}
-                      union{
-                        ?x a owl:DatatypeProperty.}
-                      }""";
-
     }
 
     public static String buildBinarySelectDistinct(String owlProp){

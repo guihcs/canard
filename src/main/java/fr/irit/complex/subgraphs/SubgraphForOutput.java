@@ -1,22 +1,21 @@
 package fr.irit.complex.subgraphs;
 
-import fr.irit.complex.subgraphs.unary.SimilarityValues;
+import fr.irit.complex.subgraphs.similarity.SimilarityValues;
 import fr.irit.resource.IRI;
 import fr.irit.resource.Resource;
 import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
-import fr.irit.sparql.query.select.SelectResponse;
 import fr.irit.sparql.query.select.SparqlSelect;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public abstract class SubgraphForOutput implements Comparable<SubgraphForOutput> {
+public abstract class SubgraphForOutput<T extends InstantiatedSubgraph, S extends SimilarityValues> implements Comparable<SubgraphForOutput<T, S>> {
     protected double similarity;
 
-    public boolean addSubgraph(InstantiatedSubgraph t, SimilarityValues sim){
+    public boolean addSubgraph(T t, S sim){
         return false;
     }
 
@@ -41,13 +40,11 @@ public abstract class SubgraphForOutput implements Comparable<SubgraphForOutput>
     }
 
     public void reassessSimilarityWithCounterExamples(String sourceEndpoint, String targetEndpoint, SparqlSelect sq) {
-        SparqlProxy spTarg = SparqlProxy.getSparqlProxy(targetEndpoint);
-        SparqlProxy spSource = SparqlProxy.getSparqlProxy(sourceEndpoint);
         double nbTrueExamples = 0;
         double nbCounterExamples = 0;
         double nbRetSource;
         try {
-            List<Map<String, SelectResponse.Results.Binding>> retSource = spSource.getResponse(sq.toString());
+            List<Map<String, String>> retSource = SparqlProxy.getResponse(sourceEndpoint, sq.toString());
             nbRetSource = retSource.size();
             int offset = 0;
             int limit = 10000;
@@ -58,16 +55,16 @@ public abstract class SubgraphForOutput implements Comparable<SubgraphForOutput>
                 newQuery += "\n LIMIT " + limit;
                 newQuery += "\n OFFSET " + offset;
 
-                List<Map<String, SelectResponse.Results.Binding>> ret = spTarg.getResponse(newQuery);
+                List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, newQuery);
 
-                for(Map<String, SelectResponse.Results.Binding> response : ret) {
+                for(Map<String, String> response : ret) {
                     if(nbCounterExamples > 10 * nbRetSource) break;
 
                     if (response.containsKey("answer")) {
-                        IRI iriResponse = new IRI("<" + response.get("answer").getValue().replaceAll("\"", "") + ">");
+                        IRI iriResponse = new IRI("<" + response.get("answer").replaceAll("\"", "") + ">");
                         iriResponse.findExistingMatches(targetEndpoint, sourceEndpoint);
                         for (IRI sourceRes : iriResponse.getSimilarIRIs()) {
-                            if (spSource.sendAskQuery("ASK{" + sq.toSubgraphForm().replaceAll("\\?answer", sourceRes.toString()) + "}")) {
+                            if (SparqlProxy.sendAskQuery(sourceEndpoint,"ASK{" + sq.toSubgraphForm().replaceAll("\\?answer", sourceRes.toString()) + "}")) {
                                 nbTrueExamples += 1;
                             } else {
                                 nbCounterExamples += 1;
@@ -77,8 +74,8 @@ public abstract class SubgraphForOutput implements Comparable<SubgraphForOutput>
                     }
 
                     if (response.containsKey("answer1")) {
-                        Resource r1 = new Resource(response.get("answer0").getValue().replaceAll("\"", ""));
-                        Resource r2 = new Resource(response.get("answer1").getValue().replaceAll("\"", ""));
+                        Resource r1 = new Resource(response.get("answer0").replaceAll("\"", ""));
+                        Resource r2 = new Resource(response.get("answer1").replaceAll("\"", ""));
                         List<Resource> valuesr1Source = new ArrayList<>();
                         List<Resource> valuesr2Source = new ArrayList<>();
 
@@ -104,7 +101,7 @@ public abstract class SubgraphForOutput implements Comparable<SubgraphForOutput>
 
                                 query = "ASK{" + query + "}";
 
-                                if (spSource.sendAskQuery(query)) {
+                                if (SparqlProxy.sendAskQuery(sourceEndpoint, query)) {
                                     nbTrueExamples += 1;
                                 } else {
                                     nbCounterExamples += 1;

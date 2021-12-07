@@ -4,7 +4,7 @@ import fr.irit.complex.answer.Answer;
 import fr.irit.complex.answer.SubgraphResult;
 import fr.irit.complex.subgraphs.InstantiatedSubgraph;
 import fr.irit.complex.subgraphs.binary.Path;
-import fr.irit.complex.subgraphs.unary.SimilarityValues;
+import fr.irit.complex.subgraphs.similarity.PathSimilarity;
 import fr.irit.main.ExecutionConfig;
 import fr.irit.resource.IRI;
 import fr.irit.resource.IRIUtils;
@@ -16,18 +16,18 @@ import fr.irit.sparql.query.select.SparqlSelect;
 import java.util.*;
 
 public class PairAnswer extends Answer {
-    final Resource r1;
-    final Resource r2;
-    boolean similarlooked;
+    private final Resource r1;
+    private final Resource r2;
+    private boolean similarLooked;
 
     public PairAnswer(Resource r1, Resource r2) {
         this.r1 = r1;
         this.r2 = r2;
-        similarlooked = false;
+        similarLooked = false;
     }
 
     @Override
-    public void retrieveIRILabels(String endpointURL) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public void retrieveIRILabels(String endpointURL) {
         if (r1 instanceof IRI ri) {
             IRIUtils.retrieveLabels(ri, endpointURL);
         }
@@ -38,14 +38,11 @@ public class PairAnswer extends Answer {
     }
     @Override
     public void getSimilarIRIs(String targetEndpoint) {
-        if (!similarlooked) {
-            if (r1 instanceof IRI ri) {
-                ri.findSimilarResource(targetEndpoint);
-            }
-            if (r2 instanceof IRI ri) {
-                ri.findSimilarResource(targetEndpoint);
-            }
-            similarlooked = true;
+        if (r1 instanceof IRI ri) {
+            ri.findSimilarResource(targetEndpoint);
+        }
+        if (r2 instanceof IRI ri) {
+            ri.findSimilarResource(targetEndpoint);
         }
     }
     @Override
@@ -67,22 +64,27 @@ public class PairAnswer extends Answer {
 
         Set<InstantiatedSubgraph> paths1 = getPaths(executionConfig, queryLabels);
 
-        for (InstantiatedSubgraph p : paths1) {
-            if (p instanceof Path pa) {
 
-                double similarity = pa.compareLabel(queryLabels, executionConfig.getSimilarityThreshold(), executionConfig.getTargetEndpoint(), 0.5);
-
-
-                paths.add(new SubgraphResult(p, new SimilarityValues(similarity, 0, 0, 0)));
-            } else {
-                System.err.println("problem in Pair answer: instantiated subgraph is not a path...");
-            }
-        }
-
-        if (paths1.isEmpty() && !similarlooked) {
+        if (paths1.isEmpty() && !similarLooked) {
             getSimilarIRIs(executionConfig.getTargetEndpoint());
             System.out.println("No path found, similar answers : " + printMatchedEquivalents());
             paths = findCorrespondingSubGraph(queryLabels, query, executionConfig);
+            similarLooked = true;
+        }
+
+        if (!paths1.isEmpty()) {
+            for (InstantiatedSubgraph p : paths1) {
+                if (p instanceof Path pa) {
+
+                    double similarity =  IRIUtils.comparePathLabel(pa, queryLabels, executionConfig.getSimilarityThreshold(), executionConfig.getTargetEndpoint(), 0.5);
+
+                    PathSimilarity pathSimilarity = new PathSimilarity();
+                    pa.setSimilarity(similarity);
+                    paths.add(new SubgraphResult(p, pathSimilarity));
+                } else {
+                    System.err.println("problem in Pair answer: instantiated subgraph is not a path...");
+                }
+            }
         }
 
         return paths;

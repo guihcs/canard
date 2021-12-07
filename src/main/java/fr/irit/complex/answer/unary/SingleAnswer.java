@@ -22,7 +22,7 @@ public class SingleAnswer extends Answer {
         res = r;
     }
     @Override
-    public void retrieveIRILabels(String endpointURL) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public void retrieveIRILabels(String endpointURL) {
         if (res instanceof IRI riri) {
             IRIUtils.retrieveLabels(riri, endpointURL);
         }
@@ -34,7 +34,7 @@ public class SingleAnswer extends Answer {
     }
 
     @Override
-    public void getSimilarIRIs(String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public void getSimilarIRIs(String targetEndpoint) {
         if (res.getSimilarIRIs().isEmpty()) {
             res.findSimilarResource(targetEndpoint);
         }

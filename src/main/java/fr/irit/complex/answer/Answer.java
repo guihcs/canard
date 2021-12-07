@@ -9,22 +9,17 @@ import java.util.HashSet;
 import java.util.Set;
 
 public abstract class Answer {
-    final HashSet<String> goodTriples;
 
-    public Answer() {
-        goodTriples = new HashSet<>();
-    }
-
-    public void getSimilarIRIs(String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public void getSimilarIRIs(String targetEndpoint) {
     }
 
     public void getExistingMatches(String sourceEndpoint, String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
     }
 
-    public void retrieveIRILabels(String endpointURL) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public void retrieveIRILabels(String endpointURL) {
     }
 
-    public abstract Set<SubgraphResult> findCorrespondingSubGraph(Set<String> queryLabels, SparqlSelect query, ExecutionConfig executionConfig) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException;
+    public abstract Set<SubgraphResult> findCorrespondingSubGraph(Set<String> queryLabels, SparqlSelect query, ExecutionConfig executionConfig);
 
     public boolean hasMatch() {
         return false;

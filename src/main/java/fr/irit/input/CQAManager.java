@@ -5,15 +5,9 @@ import fr.irit.sparql.exceptions.IncompleteSubstitutionException;
 
 import java.util.Map;
 
-public class CQAManager {
+public record CQAManager(Parameters params) {
 
     private static CQAManager instance;
-
-    private final Parameters params;
-
-    private CQAManager(Parameters params) {
-        this.params = params;
-    }
 
     public static void init(Parameters params) {
         instance = new CQAManager(params);

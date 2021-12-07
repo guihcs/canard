@@ -1,9 +1,6 @@
 package fr.irit.complex.utils;
 
 import fr.irit.sparql.proxy.SparqlProxy;
-import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
-import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
-import fr.irit.sparql.query.select.SelectResponse;
 import fr.irit.sparql.query.select.SparqlSelect;
 
 import java.io.File;
@@ -57,12 +54,16 @@ public class CQAGenerator {
 
     public void createClasses() {
         try {
-            String query = SparqlSelect.buildSelectDistinctClasses();
-            SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpoint);
-            List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
+            String query = """
+                    PREFIX owl: <http://www.w3.org/2002/07/owl#> \s
+                    SELECT distinct ?x WHERE{ \s
+                    ?x a owl:Class.\s
+                    ?y a ?x. filter(isIRI(?x))}""";
 
-            for (Map<String, SelectResponse.Results.Binding> jsonNode : ret) {
-                String owlClass = jsonNode.get("x").getValue();
+            List<Map<String, String>> ret = SparqlProxy.getResponse(endpoint, query);
+
+            for (Map<String, String> jsonNode : ret) {
+                String owlClass = jsonNode.get("x");
                 if (interestingIRI(owlClass)) {
                     PrintWriter writer = new PrintWriter(CQAFolder + "/CQA" + count + ".sparql", StandardCharsets.UTF_8);
                     String CQA = SparqlSelect.buildSelectDistinctByClassType(owlClass);
@@ -72,19 +73,25 @@ public class CQAGenerator {
                     count++;
                 }
             }
-        } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException | IOException e) {
+        } catch ( IOException e) {
             e.printStackTrace();
         }
     }
 
     public void createProperties() {
         try {
-            String query = SparqlSelect.buildSelectDistinctProperties();
-            SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpoint);
-            List<Map<String, SelectResponse.Results.Binding>> ret;
-            ret = spIn.getResponse(query);
-            for (Map<String, SelectResponse.Results.Binding> jsonNode : ret) {
-                String owlProp = jsonNode.get("x").getValue();
+            String query = """
+                    PREFIX owl: <http://www.w3.org/2002/07/owl#> \s
+                    SELECT distinct ?x WHERE{ \s
+                    ?y ?x ?z. {?x a owl:ObjectProperty.}
+                      union{
+                        ?x a owl:DatatypeProperty.}
+                      }""";
+
+            List<Map<String, String>> ret;
+            ret = SparqlProxy.getResponse(endpoint, query);
+            for (Map<String, String> jsonNode : ret) {
+                String owlProp = jsonNode.get("x");
                 if (interestingIRI(owlProp)) {
                     PrintWriter writer = new PrintWriter(CQAFolder + "/CQA" + count + ".sparql", StandardCharsets.UTF_8);
                     String CQA = SparqlSelect.buildBinarySelectDistinct(owlProp);
@@ -94,7 +101,7 @@ public class CQAGenerator {
                     count++;
                 }
             }
-        } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException | IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -105,27 +112,26 @@ public class CQAGenerator {
                     PREFIX owl: <http://www.w3.org/2002/07/owl#>  \s
                     SELECT distinct ?x WHERE {  \s
                     ?x a owl:ObjectProperty.}""";
-            SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpoint);
-            List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
-            for (Map<String, SelectResponse.Results.Binding> node : ret) {
-                String property = node.get("x").getValue();
+            List<Map<String, String>> ret = SparqlProxy.getResponse(endpoint, query);
+            for (Map<String, String> node : ret) {
+                String property = node.get("x");
                 if (interestingIRI(property)) {
                     String queryNb = "SELECT (count(distinct ?x) as ?sub) (count(distinct ?y) as ?ob) where {\n" +
                             "?x <" + property + "> ?y.}";
-                    List<Map<String, SelectResponse.Results.Binding>> retNb = spIn.getResponse(queryNb);
-                    for (Map<String, SelectResponse.Results.Binding> nodeNb : retNb) {
-                        int nbSub = Integer.parseInt(nodeNb.get("sub").getValue().replaceAll("\"", ""));
-                        int nbOb = Integer.parseInt(nodeNb.get("ob").getValue().replaceAll("\"", ""));
+                    List<Map<String, String>> retNb = SparqlProxy.getResponse(endpoint, queryNb);
+                    for (Map<String, String> nodeNb : retNb) {
+                        int nbSub = Integer.parseInt(nodeNb.get("sub").replaceAll("\"", ""));
+                        int nbOb = Integer.parseInt(nodeNb.get("ob").replaceAll("\"", ""));
 
                         if (nbSub != 0 && nbOb != 0) {
                             String queryOb = "SELECT distinct ?y where {\n" +
                                     "?x <" + property + "> ?y.}";
-                            List<Map<String, SelectResponse.Results.Binding>> retOb = spIn.getResponse(queryOb);
+                            List<Map<String, String>> retOb = SparqlProxy.getResponse(endpoint, queryOb);
                             if ((double) nbSub / (double) nbOb > ratio && nbOb < maxCAV) {
 
 
-                                for (Map<String, SelectResponse.Results.Binding> jsonNode : retOb) {
-                                    String object = jsonNode.get("y").getValue();
+                                for (Map<String, String> jsonNode : retOb) {
+                                    String object = jsonNode.get("y");
                                     PrintWriter writer = new PrintWriter(CQAFolder + "/CQA" + count + ".sparql", StandardCharsets.UTF_8);
                                     String CQA = "SELECT DISTINCT ?x WHERE {\n" +
                                             "?x <" + property + "> <" + object + ">.} ";
@@ -137,8 +143,8 @@ public class CQAGenerator {
 
                             } else if ((double) nbSub / (double) nbOb > ratio && nbOb < maxCAV) {
 
-                                for (Map<String, SelectResponse.Results.Binding> jsonNode : retOb) {
-                                    String subject = jsonNode.get("x").getValue();
+                                for (Map<String, String> jsonNode : retOb) {
+                                    String subject = jsonNode.get("x");
                                     PrintWriter writer = new PrintWriter(CQAFolder + "/CQA" + count + ".sparql", StandardCharsets.UTF_8);
                                     String CQA = "SELECT DISTINCT ?x WHERE {\n" +
                                             "<" + subject + "> <" + property + "> ?x.} ";
@@ -152,7 +158,7 @@ public class CQAGenerator {
                     }
                 }
             }
-        } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException | IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
 

@@ -2,15 +2,11 @@ package fr.irit.complex.subgraphs.binary;
 
 import fr.irit.complex.subgraphs.InstantiatedSubgraph;
 import fr.irit.complex.subgraphs.SubgraphForOutput;
-import fr.irit.complex.subgraphs.unary.SimilarityValues;
-import fr.irit.complex.utils.Utils;
+import fr.irit.complex.subgraphs.similarity.SimilarityValues;
 import fr.irit.resource.IRI;
 import fr.irit.resource.IRIUtils;
 import fr.irit.resource.Resource;
 import fr.irit.sparql.proxy.SparqlProxy;
-import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
-import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
-import fr.irit.sparql.query.select.SelectResponse;
 
 import java.util.*;
 
@@ -18,9 +14,9 @@ public class Path extends InstantiatedSubgraph {
     final List<Resource> entities;
     final List<IRI> types;
     final List<Boolean> inverse;
-    List<IRI> properties;
-    double similarity;
-    double typeSimilarity;
+    private List<IRI> properties;
+    private double similarity;
+    private double typeSimilarity;
 
     public Path(Resource x, Resource y, String sparqlEndpoint, int length, List<Boolean> inverse) {
         properties = new ArrayList<>();
@@ -74,111 +70,65 @@ public class Path extends InstantiatedSubgraph {
 
         query = "SELECT DISTINCT * WHERE { " + queryBody + " }  LIMIT 20";
 
-        SparqlProxy spProx = SparqlProxy.getSparqlProxy(sparqlEndpoint);
-        List<Map<String, SelectResponse.Results.Binding>> ret;
+        List<Map<String, String>> ret = SparqlProxy.getResponse(sparqlEndpoint, query);
 
-        try {
-            ret = spProx.getResponse(query);
-            Iterator<Map<String, SelectResponse.Results.Binding>> retIteratorTarg = ret.iterator();
-            if (retIteratorTarg.hasNext()) {
-                Map<String, SelectResponse.Results.Binding> next = retIteratorTarg.next();
-                if (next.containsKey("x")) {
-                    entities.add(new Resource(next.get("x").getValue().replaceAll("\"", "")));
-                } else {
-                    entities.add(x);
+        Iterator<Map<String, String>> retIteratorTarg = ret.iterator();
+        if (retIteratorTarg.hasNext()) {
+            Map<String, String> next = retIteratorTarg.next();
+            if (next.containsKey("x")) {
+                entities.add(new Resource(next.get("x").replaceAll("\"", "")));
+            } else {
+                entities.add(x);
+            }
+            int i = 1;
+            boolean stop = false;
+            while (i <= length && !stop) {
+                String p = next.get("p" + i);
+                Resource res = new Resource(p);
+                if (p.equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")) {
+                    stop = true;
                 }
-                int i = 1;
-                boolean stop = false;
-                while (i <= length && !stop) {
-                    String p = next.get("p" + i).getValue();
-                    Resource res = new Resource(p);
-                    if (p.equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")) {
-                        stop = true;
-                    }
-                    if (p.equals("http://www.w3.org/2002/07/owl#sameAs")) {
-                        stop = true;
-                    }
-                    if (p.equals("http://www.w3.org/2004/02/skos/core#exactMatch")) {
-                        stop = true;
-                    }
-                    if (p.equals("http://www.w3.org/2004/02/skos/core#closeMatch")) {
-                        stop = true;
-                    }
-                    if (p.equals("http://dbpedia.org/ontology/wikiPageWikiLink")) {
-                        stop = true;
-                    }
+                if (p.equals("http://www.w3.org/2002/07/owl#sameAs")) {
+                    stop = true;
+                }
+                if (p.equals("http://www.w3.org/2004/02/skos/core#exactMatch")) {
+                    stop = true;
+                }
+                if (p.equals("http://www.w3.org/2004/02/skos/core#closeMatch")) {
+                    stop = true;
+                }
+                if (p.equals("http://dbpedia.org/ontology/wikiPageWikiLink")) {
+                    stop = true;
+                }
+                if (res.isIRI()) {
+                    properties.add(new IRI("<" + p + ">"));
+                }
+                i++;
+            }
+            if (stop) {
+                properties = new ArrayList<>();
+            }
+            if (length >= 2 && !stop) {
+                for (int j = 1; j <= length - 1; j++) {
+                    String v = next.get("v" + j);
+                    Resource res = new Resource(v);
                     if (res.isIRI()) {
-                        properties.add(new IRI("<" + p + ">"));
-                    }
-                    i++;
-                }
-                if (stop) {
-                    properties = new ArrayList<>();
-                }
-                if (length >= 2 && !stop) {
-                    for (int j = 1; j <= length - 1; j++) {
-                        String v = next.get("v" + j).getValue();
-                        Resource res = new Resource(v);
-                        if (res.isIRI()) {
-                            entities.add(new IRI("<" + v + ">"));
-                        } else {
-                            entities.add(res);
-                        }
+                        entities.add(new IRI("<" + v + ">"));
+                    } else {
+                        entities.add(res);
                     }
                 }
-                if (next.containsKey("y")) {
-                    entities.add(new Resource(next.get("y").getValue().replaceAll("\"", "")));
-                } else {
-                    entities.add(y);
-                }
-
+            }
+            if (next.containsKey("y")) {
+                entities.add(new Resource(next.get("y").replaceAll("\"", "")));
+            } else {
+                entities.add(y);
             }
 
-
-        } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException e) {
-            e.printStackTrace();
         }
     }
 
-    public double compareLabel(Set<String> targetLabels, double threshold, String targetEndpoint, double typeThreshold){
-        // compare property path labels to target labels : first similarity of the path
-        similarity = 0;
-        for(IRI prop: properties) {
-            try {
-                IRIUtils.retrieveLabels(prop, targetEndpoint);
-                similarity += Utils.similarity(prop.getLabels(), targetLabels, threshold);
-            } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException e) {
-                e.printStackTrace();
-            }
-        }
 
-        //for each entity, compare the similarity of its most similarType to the target label.
-        for (int i =0; i< entities.size();i++) {
-            Resource ent = entities.get(i);
-            //System.out.println(ent);
-            if (ent instanceof IRI) {
-                IRI type = types.get(i);
-                if (type !=null) {
-                    double scoreType = Utils.similarity(type.getLabels(), targetLabels, threshold);
-                    // If the type similarity is higher than the first path sim,
-                    //System.out.println("prop "+ this.similarity+ " <-> "+type+" "+scoreType);
-                    if (scoreType > typeThreshold) {
-                        // keep the type and add the type similarity value to the final score
-                        typeSimilarity+=scoreType;
-                    }
-                    else {
-                        types.set(i, null);
-                    }
-                }
-            }
-        }
-        //	System.out.println(this.types.size());
-        if(pathFound()) {
-            similarity+=0.5;//if path
-        }
-
-        return getSimilarity();
-    }
 
 
 
@@ -190,14 +140,19 @@ public class Path extends InstantiatedSubgraph {
     public String toString() {
         StringBuilder ret = new StringBuilder();
         for (int i = 0; i < properties.size(); i++) {
-            ret.append(entities.get(i)).append(" ").append(properties.get(i)).append(" ").append(entities.get(i + 1)).append(".  ");
+            ret.append(entities.get(i))
+                    .append(" ")
+                    .append(properties.get(i))
+                    .append(" ")
+                    .append(entities.get(i + 1))
+                    .append(".  ");
         }
         return ret.toString();
     }
 
     public String toSubGraphString() {
         StringBuilder ret = new StringBuilder();
-        ArrayList<String> variables = new ArrayList<>();
+        List<String> variables = new ArrayList<>();
         variables.add("?answer0");
         for (int i = 1; i <= properties.size() - 1; i++) {
             variables.add("?v" + i);
@@ -225,12 +180,11 @@ public class Path extends InstantiatedSubgraph {
 
     public void getMostSimilarTypes(String endpointUrl, Set<String> targetLabels, double threshold) {
         for (Resource r : entities) {
+            IRI type = null;
             if (r instanceof IRI ri) {
-                IRI type = IRIUtils.findMostSimilarType(ri, endpointUrl, targetLabels, threshold);
-                types.add(type);
-            } else {
-                types.add(null);
+                type = IRIUtils.findMostSimilarType(ri, endpointUrl, targetLabels, threshold);
             }
+            types.add(type);
         }
     }
 
@@ -245,14 +199,6 @@ public class Path extends InstantiatedSubgraph {
     public List<Boolean> getInverse() {
         return inverse;
     }
-
-
-    @Override
-    public SubgraphForOutput toOutput(SimilarityValues sim) {
-
-        return new PathSubgraph(this, sim.similarity());
-    }
-
 
     public List<Resource> getEntities() {
         return entities;

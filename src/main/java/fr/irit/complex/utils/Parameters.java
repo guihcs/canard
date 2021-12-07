@@ -44,7 +44,8 @@ public class Parameters {
         String sourceEndpoint = runConfig.getSourceEndpoint();
 
         if (runConfig.getSourceOntology().containsKey("file")) {
-            EmbeddedFuseki fusekiServer = EmbeddedFuseki.getFusekiServer();
+            EmbeddedFuseki fusekiServer = EmbeddedFuseki.getInstance();
+            System.out.println("Loading sourceOntology into (" + runConfig.getSourceOntology().get("file") + ") KB...");
             fusekiServer.addDataset("sourceOntology", runConfig.getSourceOntology().get("file"));
             parameters.startEmbeddedFuseki = true;
         }
@@ -57,7 +58,8 @@ public class Parameters {
         String targetEndpoint = runConfig.getTargetEndpoint();
 
         if (runConfig.getTargetOntology().containsKey("file")) {
-            EmbeddedFuseki fusekiServer = EmbeddedFuseki.getFusekiServer();
+            EmbeddedFuseki fusekiServer = EmbeddedFuseki.getInstance();
+            System.out.println("Loading targetOntology into (" + runConfig.getTargetOntology().get("file") + ") KB...");
             fusekiServer.addDataset("targetOntology", runConfig.getTargetOntology().get("file"));
             parameters.startEmbeddedFuseki = true;
         }
@@ -101,8 +103,10 @@ public class Parameters {
 
 
         if (parameters.startEmbeddedFuseki) {
-            EmbeddedFuseki fusekiServer = EmbeddedFuseki.getFusekiServer();
+            EmbeddedFuseki fusekiServer = EmbeddedFuseki.getInstance();
+            System.out.println("Trying to create the server");
             fusekiServer.startServer();
+            System.out.println("Fuseki server started as localhost:" + fusekiServer.getPort());
         }
 
         if (parameters.cqaToBeGenerated) {

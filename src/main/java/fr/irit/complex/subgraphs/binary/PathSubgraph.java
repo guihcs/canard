@@ -1,13 +1,13 @@
 package fr.irit.complex.subgraphs.binary;
 
-import fr.irit.complex.subgraphs.InstantiatedSubgraph;
 import fr.irit.complex.subgraphs.SubgraphForOutput;
-import fr.irit.complex.subgraphs.unary.SimilarityValues;
+import fr.irit.complex.subgraphs.similarity.PathSimilarity;
 
 import java.util.ArrayList;
+import java.util.List;
 
-public class PathSubgraph extends SubgraphForOutput {
-    final ArrayList<Path> paths;
+public class PathSubgraph extends SubgraphForOutput<Path, PathSimilarity> {
+    final List<Path> paths;
 
     public PathSubgraph(Path p, double sim) {
         paths = new ArrayList<>();
@@ -20,11 +20,11 @@ public class PathSubgraph extends SubgraphForOutput {
     }
 
     @Override
-    public boolean addSubgraph(InstantiatedSubgraph p, SimilarityValues sim) {
+    public boolean addSubgraph(Path p, PathSimilarity sim) {
         boolean added = false;
-        if (((Path) p).toSubGraphString().equals(paths.get(0).toSubGraphString())) {
-            addSimilarity(sim.similarity());
-            paths.add((Path) p);
+        if (p.toSubGraphString().equals(paths.get(0).toSubGraphString())) {
+            addSimilarity(sim.getSimilarity());
+            paths.add(p);
             added = true;
         }
         return added;

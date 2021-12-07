@@ -1,13 +1,11 @@
 package fr.irit.resource;
 
 import fr.irit.complex.subgraphs.binary.Path;
-import fr.irit.complex.subgraphs.unary.*;
+import fr.irit.complex.subgraphs.unary.Triple;
+import fr.irit.complex.subgraphs.unary.TripleType;
 import fr.irit.complex.utils.Utils;
 import fr.irit.input.CQAManager;
 import fr.irit.sparql.proxy.SparqlProxy;
-import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
-import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
-import fr.irit.sparql.query.select.SelectResponse;
 import fr.irit.sparql.query.select.SparqlSelect;
 
 import java.util.*;
@@ -19,38 +17,32 @@ public class IRIUtils {
         double scoreTypeMax = -1;
         IRI finalType = null;
 
-        try {
-            if (iri.getTypes().isEmpty()) {
-                IRIUtils.retrieveTypes(iri, endpointUrl);
-            }
+        if (iri.getTypes().isEmpty()) {
+            IRIUtils.retrieveTypes(iri, endpointUrl);
+        }
 
-            for (IRI type : iri.getTypes()) {
-                double scoreType;
-                IRIUtils.retrieveLabels(type, endpointUrl);
-                scoreType = Utils.similarity(type.getLabels(), targetLabels, threshold);
-                if (scoreTypeMax < scoreType) {
-                    scoreTypeMax = scoreType;
-                    finalType = type;
-                }
+        for (IRI type : iri.getTypes()) {
+            double scoreType;
+            IRIUtils.retrieveLabels(type, endpointUrl);
+            scoreType = Utils.similarity(type.getLabels(), targetLabels, threshold);
+            if (scoreTypeMax < scoreType) {
+                scoreTypeMax = scoreType;
+                finalType = type;
             }
-        } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException e) {
-            e.printStackTrace();
         }
 
         return finalType;
     }
 
 
-    public static void retrieveTypes(IRI iri, String endpointUrl) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public static void retrieveTypes(IRI iri, String endpointUrl) {
         String query = SparqlSelect.buildTypesSelect(iri.getValue());
         SparqlSelect sq = new SparqlSelect(query);
 
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpointUrl);
+        List<Map<String, String>> ret = SparqlProxy.getResponse(endpointUrl, sq.getMainQueryWithPrefixes());
 
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(sq.getMainQueryWithPrefixes());
-
-        for (Map<String, SelectResponse.Results.Binding> jsonNode : ret) {
-            String s = jsonNode.get("type").getValue();
+        for (Map<String, String> jsonNode : ret) {
+            String s = jsonNode.get("type");
             iri.getTypes().add(new IRI("<" + s + ">"));
         }
 
@@ -60,7 +52,7 @@ public class IRIUtils {
     }
 
 
-    public static Set<Triple> getAllTriples(Resource resource, Set<String> queryLabels, String targetEndpoint, float threshold) throws SparqlEndpointUnreachableException, SparqlQueryMalFormedException {
+    public static Set<Triple> getAllTriples(Resource resource, Set<String> queryLabels, String targetEndpoint, float threshold) {
         Set<Triple> triples = new HashSet<>();
         int count = 0;
         final int numberMaxOfExploredAnswers = 20;
@@ -75,16 +67,15 @@ public class IRIUtils {
     }
 
 
-    private static Set<Triple> getPredicateTriples(Set<String> queryLabels, String targetEndpoint, IRI value, float threshold) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    private static Set<Triple> getPredicateTriples(Set<String> queryLabels, String targetEndpoint, IRI value, float threshold) {
         Set<Triple> triples = new HashSet<>();
         String query = SparqlSelect.buildPredicateTriplesSelect(value.getValue());
 
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
+        List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, query);
 
-        for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            IRI sub =  new IRI("<" + response.get("subject").getValue() + ">");
-            String obj = response.get("object").getValue();
+        for (Map<String, String> response : ret) {
+            IRI sub = new IRI("<" + response.get("subject") + ">");
+            String obj = response.get("object");
 
             Resource object = new Resource(obj);
             if (object.isIRI()) {
@@ -112,16 +103,15 @@ public class IRIUtils {
         return triples;
     }
 
-    private static Set<Triple> getObjectTriples(Set<String> queryLabels, String targetEndpoint, IRI value, float threshold) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    private static Set<Triple> getObjectTriples(Set<String> queryLabels, String targetEndpoint, IRI value, float threshold) {
         Set<Triple> triples = new HashSet<>();
         String query = SparqlSelect.buildObjectTriplesSelect(value.getValue());
 
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
+        List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, query);
 
-        for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            IRI sub =  new IRI("<" + response.get("subject").getValue() + ">");
-            IRI pred = new IRI("<" + response.get("predicate").getValue() + ">");
+        for (Map<String, String> response : ret) {
+            IRI sub = new IRI("<" + response.get("subject") + ">");
+            IRI pred = new IRI("<" + response.get("predicate") + ">");
 
             Triple triple = new Triple(sub, pred, value, TripleType.OBJECT);
 
@@ -138,18 +128,18 @@ public class IRIUtils {
         return triples;
     }
 
-    private static Set<Triple> getSubjectTriples(Set<String> queryLabels, String targetEndpoint, IRI value, float threshold) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    private static Set<Triple> getSubjectTriples(Set<String> queryLabels, String targetEndpoint, IRI value, float threshold) {
         Set<Triple> triples = new HashSet<>();
         String query = SparqlSelect.buildSubjectTriplesSelect(value.getValue());
 
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
+        List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, query);
 
-        for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            if (response.get("object").getValue().matches("\"b[0-9]+\"")) continue;
 
-            IRI pred = new IRI("<" + response.get("predicate").getValue() + ">");
-            String obj = response.get("object").getValue();
+        for (Map<String, String> response : ret) {
+            if (response.get("object").matches("\"b[0-9]+\"")) continue;
+
+            IRI pred = new IRI("<" + response.get("predicate") + ">");
+            String obj = response.get("object");
             Resource object = new Resource(obj);
             if (object.isIRI()) {
                 object = new IRI("<" + obj.replaceAll("[<>]", "") + ">");
@@ -157,7 +147,7 @@ public class IRIUtils {
 
             Triple triple = new Triple(value, pred, object, TripleType.SUBJECT);
 
-            if(object instanceof IRI to) {
+            if (object instanceof IRI to) {
                 IRI objectType = IRIUtils.findMostSimilarType(to, targetEndpoint, queryLabels, threshold);
                 triple.setObjectType(objectType);
             }
@@ -179,109 +169,7 @@ public class IRIUtils {
     }
 
 
-    public static double compareLabel(Path p, Set<String> targetLabels, double threshold, String targetEndpoint) {
-        double similarity = 0;
-        for (IRI prop : p.getProperties()) {
-            try {
-                IRIUtils.retrieveLabels(prop, targetEndpoint);
-                similarity += Utils.similarity(prop.getLabels(), targetLabels, threshold);
-            } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException e) {
-                e.printStackTrace();
-            }
-        }
-
-        for (int i = 0; i < p.getEntities().size(); i++) {
-            Resource ent = p.getEntities().get(i);
-            if (ent instanceof IRI) {
-                IRI type = p.getTypes().get(i);
-                if (type != null) {
-                    double scoreType = Utils.similarity(type.getLabels(), targetLabels, threshold);
-                    if (scoreType > 0.5) {
-                        p.setTypeSimilarity(p.getTypeSimilarity() + scoreType);
-                    } else {
-                        p.getTypes().set(i, null);
-                    }
-                }
-            }
-        }
-        if (p.pathFound()) {
-            similarity += 0.5;
-        }
-
-        p.setSimilarity(similarity);
-        return similarity;
-    }
-
-
-    public static SimilarityValues compareLabel(Triple triple, Set<String> targetLabels, double threshold) {
-        double subjectSimilarity = 0;
-        double predicateSimilarity = 0;
-        double objectSimilarity = 0;
-
-
-        if (triple.getType() != TripleType.SUBJECT) {
-            subjectSimilarity = IRIUtils.compareSubjectSimilarity(triple, targetLabels, threshold);
-        }
-
-        if (triple.getType() != TripleType.PREDICATE) {
-            predicateSimilarity = IRIUtils.comparePredicateSimilarity(triple, targetLabels, threshold);
-        }
-
-        if (triple.getType() != TripleType.OBJECT) {
-            objectSimilarity = IRIUtils.compareObjectSimilarity(triple, targetLabels, threshold);
-        }
-
-        double similarity = subjectSimilarity + predicateSimilarity + objectSimilarity;
-
-
-        return new SimilarityValues(similarity, subjectSimilarity, predicateSimilarity, 0);
-    }
-
-    public static double compareSubjectSimilarity(Triple triple, Set<String> targetLabels, double threshold){
-        double scoreTypeSubMax = 0;
-        double subjectSimilarity;
-
-
-        if (triple.getSubjectType() != null) {
-            scoreTypeSubMax = Utils.similarity(triple.getSubjectType().getLabels(), targetLabels, threshold);
-        }
-        subjectSimilarity = Utils.similarity(triple.getSubject().getLabels(), targetLabels, threshold);
-
-        if (scoreTypeSubMax > subjectSimilarity) {
-            triple.setKeepSubjectType(true);
-            subjectSimilarity = scoreTypeSubMax;
-        }
-        return subjectSimilarity;
-    }
-
-    public static double comparePredicateSimilarity(Triple triple, Set<String> targetLabels, double threshold){
-        if (triple.getPredicate().isType()) return 0;
-        return Utils.similarity(triple.getPredicate().getLabels(), targetLabels, threshold);
-    }
-
-    public static double compareObjectSimilarity(Triple triple, Set<String> targetLabels, double threshold){
-        double objectSimilarity = 0;
-        if(triple.getObject() instanceof IRI to) {
-
-            if (triple.getObjectType() != null) {
-                double scoreTypeObMax = Utils.similarity(triple.getObjectType().getLabels(), targetLabels, threshold);
-                objectSimilarity = Utils.similarity(to.getLabels(), targetLabels, threshold);
-                if (scoreTypeObMax > objectSimilarity) {
-                    triple.setKeepObjectType(true);
-                    objectSimilarity = scoreTypeObMax;
-                }
-            }
-        } else {
-            Set<String> hashObj = new HashSet<>();
-            hashObj.add(triple.getObject().toString());
-            objectSimilarity = Utils.similarity(hashObj, targetLabels, threshold);
-        }
-        return objectSimilarity;
-    }
-
-
-
-    public static void retrieveLabels(IRI iri, String endpointUrl) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public static void retrieveLabels(IRI iri, String endpointUrl) {
         if (iri.isLabelsGot()) return;
 
         Matcher matcher = iri.getPattern().matcher(iri.getValue());
@@ -296,12 +184,10 @@ public class IRIUtils {
         Map<String, String> substitution = new HashMap<>();
         substitution.put("uri", iri.getValue());
         String literalQuery = CQAManager.getInstance().getLabelQuery(endpointUrl, substitution);
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpointUrl);
 
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(literalQuery);
-
-        for (Map<String, SelectResponse.Results.Binding> jsonNode : ret) {
-            String s = jsonNode.get("x").getValue();
+        List<Map<String, String>> ret = SparqlProxy.getResponse(endpointUrl, literalQuery);
+        for (Map<String, String> jsonNode : ret) {
+            String s = jsonNode.get("x");
             Resource res = new Resource(s);
             if (!res.isIRI()) {
                 iri.addLabel(s);
@@ -309,6 +195,36 @@ public class IRIUtils {
 
         }
         iri.setLabelsGot(true);
+    }
+
+
+    public static double comparePathLabel(Path path, Set<String> targetLabels, double threshold, String targetEndpoint, double typeThreshold) {
+        double similarity = 0;
+        double typeSimilarity = 0;
+        for (IRI prop : path.getProperties()) {
+            IRIUtils.retrieveLabels(prop, targetEndpoint);
+            similarity += Utils.similarity(prop.getLabels(), targetLabels, threshold);
+        }
+
+
+        for (int i = 0; i < path.getEntities().size(); i++) {
+            Resource ent = path.getEntities().get(i);
+            if (ent instanceof IRI) {
+                IRI type = path.getTypes().get(i);
+                if (type == null) continue;
+                double scoreType = Utils.similarity(type.getLabels(), targetLabels, threshold);
+                if (scoreType > typeThreshold) {
+                    typeSimilarity += scoreType;
+                } else {
+                    path.getTypes().set(i, null);
+                }
+            }
+        }
+        if (path.pathFound()) {
+            similarity += 0.5;
+        }
+
+        return similarity + typeSimilarity;
     }
 
 }

@@ -4,7 +4,6 @@ import fr.irit.input.CQAManager;
 import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
-import fr.irit.sparql.query.select.SelectResponse;
 import fr.irit.sparql.query.select.SparqlSelect;
 
 import java.util.*;
@@ -50,13 +49,12 @@ public class IRI extends Resource {
 
     }
 
-    private static List<IRI> parseMatches(String endpoint, Map<String, String> substitution) throws SparqlEndpointUnreachableException, SparqlQueryMalFormedException {
+    private static List<IRI> parseMatches(String endpoint, Map<String, String> substitution) {
         List<IRI> allMatches = new ArrayList<>();
         String query = CQAManager.getInstance().getMatchedURIs(endpoint, substitution);
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpoint);
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
-        for (Map<String, SelectResponse.Results.Binding> node : ret) {
-            String s = node.get("x").getValue();
+        List<Map<String, String>> ret = SparqlProxy.getResponse(endpoint, query);
+        for (Map<String, String> node : ret) {
+            String s = node.get("x");
             Resource res = new Resource(s);
             if (res.isIRI()) {
                 allMatches.add(new IRI("<" + s + ">"));
@@ -68,42 +66,36 @@ public class IRI extends Resource {
 
     public boolean existsInTarget(IRI match, String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
         String queryMatch = SparqlSelect.buildExactMatchExistsAsk(match.toString());
-        SparqlProxy spTarg = SparqlProxy.getSparqlProxy(targetEndpoint);
-        return spTarg.sendAskQuery(queryMatch);
+        return SparqlProxy.sendAskQuery(targetEndpoint, queryMatch);
     }
 
 
     @Override
     public void findSimilarResource(String targetEndpoint) {
-        try {
-            if (labels.isEmpty()) {
-                IRIUtils.retrieveLabels(this, targetEndpoint);
-            }
+        if (labels.isEmpty()) {
+            IRIUtils.retrieveLabels(this, targetEndpoint);
+        }
 
-            for (String rawLab : labels) {
+        for (String rawLab : labels) {
 
-                String label = rawLab.replaceAll("[\\^+{}.?]", "");
-                Map<String, String> substitution = new HashMap<>();
-                substitution.put("labelValue", label.toLowerCase());
+            String label = rawLab.replaceAll("[\\^+{}.?]", "");
+            Map<String, String> substitution = new HashMap<>();
+            substitution.put("labelValue", label.toLowerCase());
 
-                substitution.put("LabelValue", label.length() > 1 ?
-                        label.substring(0, 1).toUpperCase() + label.substring(1) :
-                        label.toUpperCase());
+            substitution.put("LabelValue", label.length() > 1 ?
+                    label.substring(0, 1).toUpperCase() + label.substring(1) :
+                    label.toUpperCase());
 
-                String litteralQuery = CQAManager.getInstance().getSimilarQuery(targetEndpoint, substitution);
+            String litteralQuery = CQAManager.getInstance().getSimilarQuery(targetEndpoint, substitution);
 
-                if (litteralQuery.length() < 2000) {
-                    SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
-                    List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(litteralQuery);
+            if (litteralQuery.length() < 2000) {
+                List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, litteralQuery);
 
-                    for (Map<String, SelectResponse.Results.Binding> jsonNode : ret) {
-                        String s = jsonNode.get("x").getValue();
-                        similarIRIs.add(new IRI("<" + s + ">"));
-                    }
+                for (Map<String, String> jsonNode : ret) {
+                    String s = jsonNode.get("x");
+                    similarIRIs.add(new IRI("<" + s + ">"));
                 }
             }
-        } catch (SparqlQueryMalFormedException | SparqlEndpointUnreachableException e) {
-            e.printStackTrace();
         }
 
 

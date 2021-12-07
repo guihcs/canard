@@ -95,9 +95,7 @@ public class ExecutionConfig {
 
     public void end(){
         if (params.isStartEmbeddedFuseki()) {
-            EmbeddedFuseki fusekiServer = EmbeddedFuseki.getFusekiServer();
-            fusekiServer.closeConnection();
-
+            EmbeddedFuseki.getInstance().stop();
         }
         for (Output o : outputs) {
             o.end();

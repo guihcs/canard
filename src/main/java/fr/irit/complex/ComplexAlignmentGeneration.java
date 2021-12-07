@@ -4,8 +4,11 @@ import fr.irit.complex.answer.*;
 import fr.irit.complex.answer.binary.PairAnswer;
 import fr.irit.complex.answer.unary.SingleAnswer;
 import fr.irit.complex.subgraphs.*;
-import fr.irit.complex.subgraphs.unary.SimilarityValues;
+import fr.irit.complex.subgraphs.binary.Path;
+import fr.irit.complex.subgraphs.binary.PathSubgraph;
+import fr.irit.complex.subgraphs.similarity.TripleSimilarity;
 import fr.irit.complex.subgraphs.unary.Triple;
+import fr.irit.complex.subgraphs.unary.TripleSubgraph;
 import fr.irit.main.ExecutionConfig;
 import fr.irit.resource.IRI;
 import fr.irit.resource.IRIUtils;
@@ -13,7 +16,6 @@ import fr.irit.resource.Resource;
 import fr.irit.sparql.proxy.SparqlProxy;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
-import fr.irit.sparql.query.select.SelectResponse;
 import fr.irit.sparql.query.select.SparqlSelect;
 
 import java.util.*;
@@ -39,13 +41,10 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
             System.out.println("Binary query : " + sparqlSelect.toSubgraphForm());
         }
 
-
-
         System.out.println("step 3 ==============================");
-        List<Map<String, SelectResponse.Results.Binding>> ret = SparqlProxy.getAnswers(sparqlSelect, executionConfig.getSourceEndpoint());
+        List<Map<String, String>> ret = SparqlProxy.getResponse(executionConfig.getSourceEndpoint(), sparqlSelect.toUnchangedString());
         List<Answer> answers = getByArity(sparqlSelect.getFocusLength(), sparqlSelect, ret);
         System.out.println("answer size: " + answers.size());
-
 
         System.out.println("step 4 ==============================");
         Set<Answer> matchedAnswers = matchAnswers(answers);
@@ -81,7 +80,7 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
 
         System.out.println("step 8 ? =============================");
         goodGraphs = goodGraphs.stream()
-                .filter(subgraphResult -> subgraphResult.getSimilarity().similarity() > 0)
+                .filter(subgraphResult -> subgraphResult.getSimilarity().getSimilarity() > 0)
                 .collect(Collectors.toSet());
 
 
@@ -126,14 +125,14 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
         double maxSim = Double.NEGATIVE_INFINITY;
         Triple bestTriple = null;
         Set<SubgraphResult> goodTriples = new HashSet<>();
-        SimilarityValues maxSimilarityValues = null;
+        TripleSimilarity maxSimilarityValues = null;
 
         double localMaxSim = Double.NEGATIVE_INFINITY;
 
         for (Triple t : triples) {
 
-            SimilarityValues similarityValues = IRIUtils.compareLabel(t, queryLabels, executionConfig.getSimilarityThreshold());
-            double similarity = similarityValues.similarity();
+            TripleSimilarity similarityValues = TripleSimilarity.compareTripleWithLabels(t, queryLabels, executionConfig.getSimilarityThreshold());
+            double similarity = similarityValues.getSimilarity();
 
             if (similarity > maxSim) {
                 maxSim = similarity;
@@ -193,7 +192,7 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
     }
 
 
-    private List<Answer> getByArity(int arity, SparqlSelect sparqlSelect, List<Map<String, SelectResponse.Results.Binding>> ret) throws QueryArityException {
+    private List<Answer> getByArity(int arity, SparqlSelect sparqlSelect, List<Map<String, String>> ret) throws QueryArityException {
         if (arity == 1) {
             return getUnaryAnswers(sparqlSelect, ret);
 
@@ -206,47 +205,40 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
     }
 
 
-    private List<Answer> getUnaryAnswers(SparqlSelect sparqlSelect, List<Map<String, SelectResponse.Results.Binding>> ret) {
+    private List<Answer> getUnaryAnswers(SparqlSelect sparqlSelect, List<Map<String, String>> ret) {
         List<Answer> answers = new ArrayList<>();
-        for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            String s = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getValue();
-            String type = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getType().replaceAll("\"", "");
-            if (!type.equals("bnode")) {
-                Resource r = new Resource(s);
-                Resource res;
-                if (r.isIRI()) {
-                    res = new IRI("<" + r + ">");
-                } else {
-                    res = r;
-                }
-                SingleAnswer singleton = new SingleAnswer(res);
-                answers.add(singleton);
+        for (Map<String, String> response : ret) {
+            String s = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", ""));
+            Resource r = new Resource(s);
+            Resource res;
+            if (r.isIRI()) {
+                res = new IRI("<" + r + ">");
+            } else {
+                res = r;
             }
-
+            SingleAnswer singleton = new SingleAnswer(res);
+            answers.add(singleton);
         }
         return answers;
     }
 
-    private List<Answer> getBinaryAnswers(SparqlSelect sparqlSelect, List<Map<String, SelectResponse.Results.Binding>> ret) {
+    private List<Answer> getBinaryAnswers(SparqlSelect sparqlSelect, List<Map<String, String>> ret) {
         List<Answer> answers = new ArrayList<>();
-        for (Map<String, SelectResponse.Results.Binding> response : ret) {
-            String s1 = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getValue();
-            String s2 = response.get(sparqlSelect.getSelectFocus().get(1).replaceFirst("\\?", "")).getValue();
-            String type1 = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", "")).getType().replaceAll("\"", "");
-            String type2 = response.get(sparqlSelect.getSelectFocus().get(1).replaceFirst("\\?", "")).getType().replaceAll("\"", "");
-            if (!type1.equals("bnode") && !type2.equals("bnode")) {
-                if (!s1.equals("") && !s2.equals("")) {
-                    Resource r1 = new Resource(s1);
-                    Resource r2 = new Resource(s2);
-                    if (r1.isIRI()) {
-                        r1 = new IRI("<" + r1 + ">");
-                    }
-                    if (r2.isIRI()) {
-                        r2 = new IRI("<" + r2 + ">");
-                    }
-                    PairAnswer pair = new PairAnswer(r1, r2);
-                    answers.add(pair);
+        for (Map<String, String> response : ret) {
+            String s1 = response.get(sparqlSelect.getSelectFocus().get(0).replaceFirst("\\?", ""));
+            String s2 = response.get(sparqlSelect.getSelectFocus().get(1).replaceFirst("\\?", ""));
+
+            if (!s1.equals("") && !s2.equals("")) {
+                Resource r1 = new Resource(s1);
+                Resource r2 = new Resource(s2);
+                if (r1.isIRI()) {
+                    r1 = new IRI("<" + r1 + ">");
                 }
+                if (r2.isIRI()) {
+                    r2 = new IRI("<" + r2 + ">");
+                }
+                PairAnswer pair = new PairAnswer(r1, r2);
+                answers.add(pair);
             }
         }
         return answers;
@@ -254,8 +246,8 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
 
     private List<SubgraphForOutput> buildSubgraphForOutput(Set<SubgraphResult> goodSubgraphs) {
         List<SubgraphForOutput> output = new ArrayList<>();
-
         for (SubgraphResult result : goodSubgraphs) {
+
             boolean added = false;
 
             for (SubgraphForOutput subG : output) {
@@ -264,7 +256,14 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
             }
 
             if (!added) {
-                output.add(result.getSubgraph().toOutput(result.getSimilarity()));
+
+                if (result.getSubgraph() instanceof Triple triple) {
+                    output.add(new TripleSubgraph(triple, result.getSimilarity()));
+                } else if (result.getSubgraph() instanceof Path path) {
+                    output.add(new PathSubgraph(path, result.getSimilarity().getSimilarity()));
+                }
+
+
             }
 
         }

@@ -2,48 +2,23 @@ package fr.irit.sparql.proxy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
-import fr.irit.input.CQAManager;
-import fr.irit.resource.IRI;
-import fr.irit.resource.Resource;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
-import fr.irit.sparql.query.select.SelectResponse;
-import fr.irit.sparql.query.select.SparqlSelect;
+import org.apache.jena.query.ResultSet;
+import org.apache.jena.rdfconnection.RDFConnection;
+import org.apache.jena.rdfconnection.RDFConnectionFactory;
 
 import java.io.*;
-import java.net.*;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 
-public class SparqlProxy {
+public abstract class SparqlProxy {
 
-    private static final HashMap<String, SparqlProxy> insts = new HashMap<>();
-    private final String urlServer;
-    private HttpClient httpClient;
-
-    private SparqlProxy(String urlServer) {
-        this.urlServer = urlServer;
-    }
-
-    public static SparqlProxy getSparqlProxy(String url) {
-
-        SparqlProxy inst = insts.get(url);
-
-        if (inst == null) {
-            inst = new SparqlProxy(url);
-            inst.httpClient = HttpClient.newHttpClient();
-            insts.put(url, inst);
-        }
-
-        return inst;
-    }
 
     public static String cleanString(String s) {
         return s.replaceAll("\r", "").replaceAll("\n", "");
@@ -58,35 +33,26 @@ public class SparqlProxy {
         }
     }
 
-    public List<Map<String, SelectResponse.Results.Binding>> getResponse(String query) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
-        List<Map<String, SelectResponse.Results.Binding>> bindings = new ArrayList<>();
-        query = SparqlProxy.cleanString(query);
-        URI uri = URI.create(urlServer + "sparql?output=json&query=" + URLEncoder.encode(query, StandardCharsets.UTF_8));
-        HttpRequest httpRequest = HttpRequest
-                .newBuilder(uri)
-                .GET()
-                .build();
+    public static List<Map<String, String>> getResponse(String urlServer, String query) {
 
-        try {
-            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
-            Gson gson = new Gson();
-            SelectResponse selectResponse = gson.fromJson(response.body(), SelectResponse.class);
-            bindings = selectResponse.getResults().getBindings();
+        List<Map<String, String>> result = new ArrayList<>();
 
-        } catch (MalformedURLException ex) {
-            throw new SparqlQueryMalFormedException("Query malformed : " + query);
-        } catch (UnsupportedEncodingException ex) {
-            throw new SparqlQueryMalFormedException("Encoding unsupported");
-        } catch (IOException ex) {
-            throw new SparqlEndpointUnreachableException(ex);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        try (RDFConnection connection = RDFConnectionFactory.connect(urlServer)) {
+            ResultSet resultSet = connection.query(query).execSelect();
+
+            resultSet.forEachRemaining(querySolution -> {
+                Map<String, String> bind = new HashMap<>();
+                querySolution.varNames().forEachRemaining(name ->
+                        bind.put(name, querySolution.get(name).toString())
+                );
+                result.add(bind);
+            });
         }
 
-        return bindings;
+        return result;
     }
 
-    public void postSparqlUpdateQuery(String query) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public static void postSparqlUpdateQuery(String urlServer, String query) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
         HttpURLConnection connection = null;
         try {
             String urlParameters = "update="
@@ -119,7 +85,7 @@ public class SparqlProxy {
     }
 
 
-    public boolean sendAskQuery(String query) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public static boolean sendAskQuery(String urlServer, String query) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
         boolean ret;
 
         HttpURLConnection connection = null;
@@ -160,47 +126,4 @@ public class SparqlProxy {
     }
 
 
-
-    public static Set<String> retrieveIRILabels(String endpoint, IRI iri) throws SparqlEndpointUnreachableException, SparqlQueryMalFormedException {
-        Set<String> labels = new HashSet<>();
-        Pattern pattern = Pattern.compile("<([^>]+)[#/]([A-Za-z0-9_-]+)>");
-
-        Matcher matcher = pattern.matcher(iri.getValue());
-
-        if (matcher.find()) {
-            addLabel(labels, matcher.group(2));
-        } else {
-            addLabel(labels, iri.getValue());
-        }
-
-
-        Map<String, String> substitution = new HashMap<>();
-        substitution.put("uri", iri.getValue());
-        String literalQuery = CQAManager.getInstance().getLabelQuery(endpoint, substitution);
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(endpoint);
-
-        List<Map<String, SelectResponse.Results.Binding>> response = spIn.getResponse(literalQuery);
-
-        for (Map<String, SelectResponse.Results.Binding> jsonNode : response) {
-            String s = jsonNode.get("x").getValue();
-            Resource res = new Resource(s);
-            if (!res.isIRI()) {
-                addLabel(labels, s);
-            }
-
-        }
-
-        return labels;
-    }
-
-
-    private static void addLabel(Set<String> labels, String label) {
-        labels.add(label.trim().replaceAll("\\\\", "").toLowerCase());
-    }
-
-
-    public static List<Map<String, SelectResponse.Results.Binding>> getAnswers(SparqlSelect sparqlSelect, String endpoint) throws SparqlEndpointUnreachableException, SparqlQueryMalFormedException {
-        SparqlProxy sparqlProxy = SparqlProxy.getSparqlProxy(endpoint);
-        return sparqlProxy.getResponse(sparqlSelect.toUnchangedString());
-    }
 }

@@ -2,9 +2,6 @@ package fr.irit.resource;
 
 import fr.irit.input.CQAManager;
 import fr.irit.sparql.proxy.SparqlProxy;
-import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
-import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
-import fr.irit.sparql.query.select.SelectResponse;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -13,7 +10,7 @@ import java.util.regex.Pattern;
 public class Resource {
 
     protected final String value;
-    protected final HashSet<IRI> similarIRIs;
+    protected final Set<IRI> similarIRIs;
     private final Pattern pattern = Pattern.compile("[a-z][/:#]");
 
     public Resource(String val) {
@@ -27,7 +24,7 @@ public class Resource {
         return !value.contains(" ") && matcher.find();
     }
 
-    public void findSimilarResource(String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
+    public void findSimilarResource(String targetEndpoint) {
 
         Map<String, String> substitution = new HashMap<>();
         substitution.put("labelValue", value);
@@ -37,29 +34,28 @@ public class Resource {
                 "\"" + value.toUpperCase() + "\"");
 
         String query = CQAManager.getInstance().getSimilarQuery(targetEndpoint, substitution);
-        SparqlProxy spIn = SparqlProxy.getSparqlProxy(targetEndpoint);
 
-        List<Map<String, SelectResponse.Results.Binding>> ret = spIn.getResponse(query);
+        List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, query);
 
-        for(Map<String, SelectResponse.Results.Binding> node : ret) {
-            String s = node.get("x").getValue();
+        for(Map<String, String> node : ret) {
+            String s = node.get("x");
             similarIRIs.add(new IRI("<" + s + ">"));
         }
 
         substitution.put("labelValue", "\"" + value.substring(0, 1).toUpperCase() + value.substring(1) + "\"@en");
         query = CQAManager.getInstance().getSimilarQuery(targetEndpoint, substitution);
-        ret = spIn.getResponse(query);
+        ret = SparqlProxy.getResponse(targetEndpoint, query);
 
-        for(Map<String, SelectResponse.Results.Binding> node : ret) {
-            String s = node.get("x").getValue();
+        for(Map<String, String> node : ret) {
+            String s = node.get("x");
             similarIRIs.add(new IRI("<" + s + ">"));
         }
 
         substitution.put("labelValue", "\"" + value.substring(0, 1).toUpperCase() + value.substring(1) + "\"");
-        ret = spIn.getResponse(query);
+        ret = SparqlProxy.getResponse(targetEndpoint, query);
 
-        for(Map<String, SelectResponse.Results.Binding> node : ret) {
-            String s = node.get("x").getValue();
+        for(Map<String, String> node : ret) {
+            String s = node.get("x");
             similarIRIs.add(new IRI("<" + s + ">"));
         }
 
@@ -94,7 +90,7 @@ public class Resource {
         }
     }
 
-    public HashSet<IRI> getSimilarIRIs() {
+    public Set<IRI> getSimilarIRIs() {
         return similarIRIs;
     }
 
