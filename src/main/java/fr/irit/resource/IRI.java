@@ -46,7 +46,6 @@ public class IRI extends Resource {
             }
         }
 
-
     }
 
     private static List<IRI> parseMatches(String endpoint, Map<String, String> substitution) {
