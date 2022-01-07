@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fr.irit.sparql.query.exceptions.SparqlEndpointUnreachableException;
 import fr.irit.sparql.query.exceptions.SparqlQueryMalFormedException;
-//import org.apache.jena.query.ResultSet;
-//import org.apache.jena.rdfconnection.RDFConnection;
-//import org.apache.jena.rdfconnection.RDFConnectionFactory;
+import org.apache.jena.rdfconnection.RDFConnection;
+import org.apache.jena.rdfconnection.RDFConnectionFactory;
+import org.apache.jena.query.ResultSet;
 
 
 import java.io.*;
@@ -15,7 +15,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.sql.ResultSet;
 import java.util.*;
 
 
@@ -39,17 +38,17 @@ public abstract class SparqlProxy {
 
         List<Map<String, String>> result = new ArrayList<>();
 
-//        try (RDFConnection connection = RDFConnectionFactory.connect(urlServer)) {
-//            ResultSet resultSet = connection.query(query).execSelect();
-//
-//            resultSet.forEachRemaining(querySolution -> {
-//                Map<String, String> bind = new HashMap<>();
-//                querySolution.varNames().forEachRemaining(name ->
-//                        bind.put(name, querySolution.get(name).toString())
-//                );
-//                result.add(bind);
-//            });
-//        }
+        try (RDFConnection connection = RDFConnectionFactory.connect(urlServer)) {
+            ResultSet resultSet = connection.query(query).execSelect();
+
+            resultSet.forEachRemaining(querySolution -> {
+                Map<String, String> bind = new HashMap<>();
+                querySolution.varNames().forEachRemaining(name ->
+                        bind.put(name, querySolution.get(name).toString())
+                );
+                result.add(bind);
+            });
+        }
 
         return result;
     }
