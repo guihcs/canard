@@ -27,7 +27,7 @@ public class IRI extends Resource {
 
 
     public void addLabel(String label) {
-        labels.add(label.trim().replaceAll("\\\\", "").toLowerCase());
+        labels.add(label.trim().replaceAll("\\d", ""));
     }
 
     public void findExistingMatches(String sourceEndpoint, String targetEndpoint) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
@@ -35,7 +35,7 @@ public class IRI extends Resource {
         allMatches.add(this);
 
         Map<String, String> substitution = new HashMap<>();
-        substitution.put("uri", value.replaceAll("\\$", ""));
+        substitution.put("uri", value.replaceAll("[\\^+{}.?$]", ""));
 
         allMatches.addAll(IRI.parseMatches(sourceEndpoint, substitution));
         allMatches.addAll(IRI.parseMatches(targetEndpoint, substitution));
@@ -59,6 +59,7 @@ public class IRI extends Resource {
                 allMatches.add(new IRI("<" + s + ">"));
             }
         }
+
         return allMatches;
     }
 
@@ -75,26 +76,31 @@ public class IRI extends Resource {
             IRIUtils.retrieveLabels(this, targetEndpoint);
         }
 
+        Set<String> ll = new HashSet<>();
+        Set<String> lu = new HashSet<>();
+
+
         for (String rawLab : labels) {
 
-            String label = rawLab.replaceAll("[\\^+{}.?]", "");
-            Map<String, String> substitution = new HashMap<>();
-            substitution.put("labelValue", label.toLowerCase());
+            String label = rawLab.replaceAll("[.*+?^${}()|\\[\\]\\\\]", "");
 
-            substitution.put("LabelValue", label.length() > 1 ?
+            ll.add(label.toLowerCase());
+            lu.add(label.length() > 1 ?
                     label.substring(0, 1).toUpperCase() + label.substring(1) :
                     label.toUpperCase());
 
-            String litteralQuery = CQAManager.getInstance().getSimilarQuery(targetEndpoint, substitution);
+        }
+        Map<String, String> substitution = new HashMap<>();
+        substitution.put("labelValue", "(" + String.join("|", ll) + ")");
 
-            if (litteralQuery.length() < 2000) {
-                List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, litteralQuery);
+        substitution.put("LabelValue", "(" + String.join("|", lu) + ")");
 
-                for (Map<String, String> jsonNode : ret) {
-                    String s = jsonNode.get("x");
-                    similarIRIs.add(new IRI("<" + s + ">"));
-                }
-            }
+        String litteralQuery = CQAManager.getInstance().getSimilarQuery(targetEndpoint, substitution);
+
+        List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, litteralQuery);
+        for (Map<String, String> jsonNode : ret) {
+            String s = jsonNode.get("x");
+            similarIRIs.add(new IRI("<" + s + ">"));
         }
 
 

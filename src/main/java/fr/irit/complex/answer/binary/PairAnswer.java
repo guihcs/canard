@@ -57,18 +57,17 @@ public class PairAnswer extends Answer {
 
     }
 
-    @Override
-    public Set<SubgraphResult> findCorrespondingSubGraph(Set<String> queryLabels, SparqlSelect query, ExecutionConfig executionConfig) {
 
+    private Set<SubgraphResult> findCorresponding(Set<String> queryLabels, SparqlSelect query, ExecutionConfig executionConfig, int currentPath, int maxPath){
         Set<SubgraphResult> paths = new HashSet<>();
-
+        if( currentPath > maxPath) return paths;
         Set<InstantiatedSubgraph> paths1 = getPaths(executionConfig, queryLabels);
 
 
         if (paths1.isEmpty() && !similarLooked) {
             getSimilarIRIs(executionConfig.getTargetEndpoint());
             System.out.println("No path found, similar answers : " + printMatchedEquivalents());
-            paths = findCorrespondingSubGraph(queryLabels, query, executionConfig);
+            paths = findCorresponding(queryLabels, query, executionConfig, currentPath + 1, maxPath);
             similarLooked = true;
         }
 
@@ -88,10 +87,14 @@ public class PairAnswer extends Answer {
         }
 
         return paths;
+
     }
 
+    @Override
+    public Set<SubgraphResult> findCorrespondingSubGraph(Set<String> queryLabels, SparqlSelect query, ExecutionConfig executionConfig) {
 
-
+        return findCorresponding(queryLabels, query, executionConfig, 0, 5);
+    }
 
 
     private Set<InstantiatedSubgraph> getPaths(ExecutionConfig executionConfig, Set<String> queryLabels){

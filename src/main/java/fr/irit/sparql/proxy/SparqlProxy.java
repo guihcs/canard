@@ -87,43 +87,11 @@ public abstract class SparqlProxy {
 
 
     public static boolean sendAskQuery(String urlServer, String query) throws SparqlQueryMalFormedException, SparqlEndpointUnreachableException {
-        boolean ret;
 
-        HttpURLConnection connection = null;
-        query = SparqlProxy.cleanString(query);
-        try {
-            URL url = new URL(urlServer + "sparql?output=json&query="
-                    + URLEncoder.encode(query, StandardCharsets.UTF_8));
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Content-Type",
-                    "application/x-www-form-urlencoded");
-
-            InputStream is = connection.getInputStream();
-            BufferedReader rd = new BufferedReader(new InputStreamReader(is));
-            String line;
-            StringBuilder response = new StringBuilder();
-            while ((line = rd.readLine()) != null) {
-                response.append(line);
-                response.append('\r');
-            }
-            rd.close();
-            String jsonRet = response.toString();
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(jsonRet);
-            ret = root.get("boolean").asBoolean();
-        } catch (UnsupportedEncodingException ex) {
-            throw new SparqlQueryMalFormedException("Encoding unsupported");
-        } catch (MalformedURLException ex) {
-            throw new SparqlQueryMalFormedException("Query malformed");
-        } catch (IOException ex) {
-            throw new SparqlEndpointUnreachableException(ex);
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
+        try (RDFConnection connection = RDFConnectionFactory.connect(urlServer)) {
+            return connection.queryAsk(query);
         }
-        return ret;
+
     }
 
 

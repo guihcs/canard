@@ -29,6 +29,7 @@ public class IRIUtils {
                 scoreTypeMax = scoreType;
                 finalType = type;
             }
+
         }
 
         return finalType;
@@ -72,7 +73,6 @@ public class IRIUtils {
         String query = SparqlSelect.buildPredicateTriplesSelect(value.getValue());
 
         List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, query);
-
         for (Map<String, String> response : ret) {
             IRI sub = new IRI("<" + response.get("subject") + ">");
             String obj = response.get("object");
@@ -134,7 +134,6 @@ public class IRIUtils {
 
         List<Map<String, String>> ret = SparqlProxy.getResponse(targetEndpoint, query);
 
-
         for (Map<String, String> response : ret) {
             if (response.get("object").matches("\"b[0-9]+\"")) continue;
 
@@ -186,6 +185,7 @@ public class IRIUtils {
         String literalQuery = CQAManager.getInstance().getLabelQuery(endpointUrl, substitution);
 
         List<Map<String, String>> ret = SparqlProxy.getResponse(endpointUrl, literalQuery);
+
         for (Map<String, String> jsonNode : ret) {
             String s = jsonNode.get("x");
             Resource res = new Resource(s);

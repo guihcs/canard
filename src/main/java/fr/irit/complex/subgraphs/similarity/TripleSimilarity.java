@@ -5,7 +5,9 @@ import fr.irit.complex.subgraphs.unary.Triple;
 import fr.irit.complex.subgraphs.unary.TripleType;
 import fr.irit.complex.utils.Utils;
 import fr.irit.resource.IRI;
+import org.apache.jena.sparql.function.library.print;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class TripleSimilarity extends SimilarityValues {
@@ -48,6 +50,9 @@ public class TripleSimilarity extends SimilarityValues {
                 objectSimilarity = Utils.similarity(to.getLabels(), labels, threshold);
             } else {
                 Set<String> hashObj = Set.of(triple.getObject().toString());
+
+                hashObj = parseLabels(hashObj);
+
                 objectSimilarity = Utils.similarity(hashObj, labels, threshold);
             }
             tripleSimilarity.setObjectSimilarity(objectSimilarity);
@@ -56,6 +61,18 @@ public class TripleSimilarity extends SimilarityValues {
 
 
         return tripleSimilarity;
+    }
+
+
+    private static Set<String> parseLabels(Set<String> values){
+        Set<String> result = new HashSet<>();
+        for (String value : values) {
+            String[] split = value.split("#");
+            value = split.length > 1 ? split[split.length - 1] : split[0];
+            value = value.replaceAll("\\W", "");
+            result.add(value);
+        }
+        return result;
     }
 
 

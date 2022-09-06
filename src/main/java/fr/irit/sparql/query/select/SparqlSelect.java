@@ -122,6 +122,7 @@ public class SparqlSelect extends SparqlQuery {
     }
 
     public static String buildExactMatchExistsAsk(String match) {
+
         return "ASK {" +
                 "{" + match + " ?z ?x. "
                 + "MINUS {" + match + " <http://www.w3.org/2002/07/owl#sameAs> ?x.}"

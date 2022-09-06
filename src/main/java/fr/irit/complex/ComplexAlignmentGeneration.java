@@ -28,7 +28,6 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
     public void run() throws SparqlEndpointUnreachableException, SparqlQueryMalFormedException, QueryArityException {
         System.out.println("Number of CQAs: " + executionConfig.getQueries().size());
         for (SparqlSelect sparqlSelect : executionConfig.getQueries()) {
-            System.out.println();
             executeQuery(sparqlSelect);
         }
     }
@@ -56,16 +55,14 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
             IRIUtils.retrieveLabels(m.getValue(), executionConfig.getSourceEndpoint());
             queryLabels.addAll(m.getValue().getLabels());
         }
-        System.out.println(queryLabels);
+
 
         System.out.println("step 5, 6, 7 ======================================");
         Set<SubgraphResult> goodGraphs = new HashSet<>();
 
         for (Answer ans : matchedAnswers) {
             if (ans instanceof SingleAnswer singleAnswer) {
-
                 Set<Triple> triples = IRIUtils.getAllTriples(singleAnswer.getRes(), queryLabels, executionConfig.getTargetEndpoint(), executionConfig.getSimilarityThreshold());
-
                 Set<SubgraphResult> goodTriples = getGoodTriples(queryLabels, triples);
 
                 goodGraphs.addAll(goodTriples);
@@ -104,7 +101,7 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
         if (executionConfig.isReassess()) {
             System.out.println("Reassessing similarity");
             for (SubgraphForOutput s : output) {
-                System.out.println(s);
+
                 s.reassessSimilarityWithCounterExamples(executionConfig.getSourceEndpoint(), executionConfig.getTargetEndpoint(), sparqlSelect);
             }
         }
@@ -133,7 +130,6 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
 
             TripleSimilarity similarityValues = TripleSimilarity.compareTripleWithLabels(t, queryLabels, executionConfig.getSimilarityThreshold());
             double similarity = similarityValues.getSimilarity();
-
             if (similarity > maxSim) {
                 maxSim = similarity;
                 maxSimilarityValues = similarityValues;
@@ -152,6 +148,7 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
         if (goodTriples.isEmpty() && bestTriple != null) {
             goodTriples.add(new SubgraphResult(bestTriple, maxSimilarityValues));
         }
+
         return goodTriples;
     }
 
@@ -174,7 +171,9 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
 
         if (matchedAnswers.isEmpty()) {
             System.out.println("Looking for similar answers...");
+            int i = 0;
             for (Answer ans : answers) {
+                if (i % 100 == 0) System.out.printf("%.2f\n", i / (double)answers.size());
                 if (matchedAnswers.size() >= executionConfig.getMaxMatches()) break;
                 ans.retrieveIRILabels(executionConfig.getSourceEndpoint());
                 ans.getSimilarIRIs(executionConfig.getTargetEndpoint());
@@ -183,6 +182,7 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
                     System.out.println(ans.printMatchedEquivalents());
                     matchedAnswers.add(ans);
                 }
+                i++;
             }
 
             System.out.println("Number of similar answers :" + matchedAnswers.size());
@@ -282,7 +282,7 @@ public record ComplexAlignmentGeneration(ExecutionConfig executionConfig) {
             for (int i = output.size() - 1; i >= 0 && moreCorrespondences; i--) {
                 if (output.get(i).getSimilarity() == sim) {
                     singleOutput.add(output.get(i));
-                    System.out.println(output.get(i));
+
                 } else {
                     moreCorrespondences = false;
                 }

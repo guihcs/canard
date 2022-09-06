@@ -27,7 +27,14 @@ public class Resource {
     public void findSimilarResource(String targetEndpoint) {
 
         Map<String, String> substitution = new HashMap<>();
-        substitution.put("labelValue", value);
+
+        Set<String> values = Set.of(
+                value,
+                "\"" + value.substring(0, 1).toUpperCase() + value.substring(1) + "\"@en",
+                "\"" + value.substring(0, 1).toUpperCase() + value.substring(1) + "\""
+        );
+
+        substitution.put("labelValue", "(" + String.join("|", values) + ")");
 
         substitution.put("LabelValue", value.length() > 1 ?
                 value.substring(0, 1).toUpperCase() + value.substring(1) :
@@ -41,24 +48,6 @@ public class Resource {
             String s = node.get("x");
             similarIRIs.add(new IRI("<" + s + ">"));
         }
-
-        substitution.put("labelValue", "\"" + value.substring(0, 1).toUpperCase() + value.substring(1) + "\"@en");
-        query = CQAManager.getInstance().getSimilarQuery(targetEndpoint, substitution);
-        ret = SparqlProxy.getResponse(targetEndpoint, query);
-
-        for(Map<String, String> node : ret) {
-            String s = node.get("x");
-            similarIRIs.add(new IRI("<" + s + ">"));
-        }
-
-        substitution.put("labelValue", "\"" + value.substring(0, 1).toUpperCase() + value.substring(1) + "\"");
-        ret = SparqlProxy.getResponse(targetEndpoint, query);
-
-        for(Map<String, String> node : ret) {
-            String s = node.get("x");
-            similarIRIs.add(new IRI("<" + s + ">"));
-        }
-
 
     }
 

@@ -88,4 +88,13 @@ public class Triple extends InstantiatedSubgraph {
     public boolean haveTypePredicate() {
         return predicate.toString().equals("<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>");
     }
+
+    @Override
+    public String toString() {
+        return "Triple{" +
+                "subject=" + subject +
+                ", predicate=" + predicate +
+                ", object=" + object +
+                '}';
+    }
 }
